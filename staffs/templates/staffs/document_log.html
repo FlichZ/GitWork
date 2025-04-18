@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block content %}
+<div class="container mx-auto mt-10 px-4">
+    <!-- Заголовок и кнопки -->
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold text-gray-800">{% trans "Document Log" %}</h2>
+        <div class="flex space-x-3">
+            <button id="undo-button" class="inline-flex items-center px-4 py-2 bg-gray-600 text-gray-200 rounded-lg shadow hover:bg-gray-700 transition duration-200 disabled:opacity-50 mr-5" disabled>
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6-6m0 0l-6 6"></path>
+                </svg>
+                {% trans "Undo" %}
+            </button>
+            <button id="redo-button" class="inline-flex items-center px-4 py-2 bg-gray-600 text-gray-200 rounded-lg shadow hover:bg-gray-700 transition duration-200 disabled:opacity-50 mr-5" disabled>
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a8 8 0 00-8 8v2m0-10l-6 6m6-6l6 6"></path>
+                </svg>
+                {% trans "Redo" %}
+            </button>
+            <a href="{% url 'staffs:document_log' %}?download=1" class="inline-flex items-center px-4 py-2 bg-indigo-700 text-gray-200 rounded-lg shadow hover:bg-indigo-800 transition duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                {% trans "Download as Excel" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Таблица с отступами и границами -->
+    <div class="overflow-x-auto bg-white rounded-lg shadow-lg border-2 border-gray-700 p-6">
+        <table class="min-w-full table-auto">
+            <thead class="bg-indigo-800">
+                <tr>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "Outgoing Number" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "Date Sent/Accepted" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "Recipient" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "Summary" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "Page Count" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "Attachment" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "Sender" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "Method" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "Date Sent" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200 border-r border-gray-700">{% trans "🙂 Received" %}</th>
+                    <th class="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider text-gray-200">{% trans "Note" %}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for row in table_data %}
+                <tr class="hover:bg-gray-50 transition duration-150">
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200">{{ row.number }}</td>
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="{{ row.id }}" data-field="date_sent_accepted">{{ row.date_sent_accepted }}</td>
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="{{ row.id }}" data-field="recipient_name">{{ row.recipient }}</td>
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="{{ row.id }}" data-field="summary">{{ row.summary }}</td>
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="{{ row.id }}" data-field="page_count">{{ row.page_count }}</td>
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="{{ row.id }}" data-field="attachment">{{ row.attachment }}</td>
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200">{{ row.sender }}</td>
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="{{ row.id }}" data-field="method">{{ row.method }}</td>
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="{{ row.id }}" data-field="date_sent">{{ row.date_sent }}</td>
+                    <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="{{ row.id }}" data-field="date_received">{{ row.date_received }}</td>
+                    <td class="px-6 py-4 text-gray-700 editable" data-document-id="{{ row.id }}" data-field="note">{{ row.note }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="11" class="px-6 py-4 text-center text-gray-500">{% trans "No documents available." %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- JavaScript для редактирования, отмены и повторного применения изменений -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const editableCells = document.querySelectorAll('.editable');
+    const undoButton = document.getElementById('undo-button');
+    const redoButton = document.getElementById('redo-button');
+    let undoStack = []; // Стек для хранения истории отмен
+    let redoStack = []; // Стек для хранения истории повторного применения
+
+    editableCells.forEach(cell => {
+        cell.addEventListener('click', function () {
+            const currentText = this.innerText;
+            const documentId = this.getAttribute('data-document-id');
+            const field = this.getAttribute('data-field');
+
+            // Создаём поле ввода с границами
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentText;
+            input.className = 'w-full px-2 py-1 border-2 border-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm';
+
+            // Заменяем текст на поле ввода
+            this.innerText = '';
+            this.appendChild(input);
+            input.focus();
+
+            // Обработка сохранения
+            input.addEventListener('blur', function () {
+                const newValue = this.value;
+                cell.innerText = newValue;
+
+                // Добавляем изменение в стек отмен
+                undoStack.push({
+                    cell: cell,
+                    oldValue: currentText,
+                    newValue: newValue,
+                    documentId: documentId,
+                    field: field
+                });
+                // Очищаем стек повторного применения, так как новое изменение делает предыдущие "redo" неактуальными
+                redoStack = [];
+                undoButton.disabled = false;
+                redoButton.disabled = true;
+
+                // Отправляем AJAX-запрос
+                fetch("{% url 'staffs:update_document_field' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    body: `document_id=${documentId}&field=${field}&value=${encodeURIComponent(newValue)}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        cell.classList.add('bg-green-100', 'animate-pulse');
+                    } else {
+                        cell.classList.add('bg-red-100', 'animate-pulse');
+                        alert(data.message);
+                        cell.innerText = currentText; // Откатываем изменения
+                        undoStack.pop(); // Удаляем последнее изменение из стека
+                        undoButton.disabled = undoStack.length === 0;
+                    }
+                })
+                .catch(error => {
+                    cell.classList.add('bg-red-100', 'animate-pulse');
+                    alert('Error: ' + error);
+                    cell.innerText = currentText; // Откатываем изменения
+                    undoStack.pop(); // Удаляем последнее изменение из стека
+                    undoButton.disabled = undoStack.length === 0;
+                });
+            });
+
+            // Сохранение при нажатии Enter
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    this.blur();
+                }
+            });
+        });
+    });
+
+    // Обработка кнопки Undo
+    undoButton.addEventListener('click', function () {
+        if (undoStack.length > 0) {
+            const lastChange = undoStack.pop(); // Извлекаем последнее изменение
+            const { cell, oldValue, newValue, documentId, field } = lastChange;
+            cell.innerText = oldValue;
+
+            // Добавляем изменение в стек повторного применения
+            redoStack.push({
+                cell: cell,
+                oldValue: oldValue,
+                newValue: newValue,
+                documentId: documentId,
+                field: field
+            });
+
+            // Отправляем AJAX-запрос для восстановления старого значения
+            fetch("{% url 'staffs:update_document_field' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: `document_id=${documentId}&field=${field}&value=${encodeURIComponent(oldValue)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    cell.classList.add('bg-yellow-100', 'animate-pulse');
+                } else {
+                    cell.classList.add('bg-red-100', 'animate-pulse');
+                    alert(data.message);
+                    cell.innerText = newValue; // Возвращаем новое значение при ошибке
+                    undoStack.push(lastChange); // Возвращаем изменение в стек отмен
+                    redoStack.pop(); // Удаляем из стека повторного применения
+                }
+            })
+            .catch(error => {
+                cell.classList.add('bg-red-100', 'animate-pulse');
+                alert('Error: ' + error);
+                cell.innerText = newValue; // Возвращаем новое значение при ошибке
+                undoStack.push(lastChange); // Возвращаем изменение в стек отмен
+                redoStack.pop(); // Удаляем из стека повторного применения
+            });
+
+            // Обновляем состояние кнопок
+            undoButton.disabled = undoStack.length === 0;
+            redoButton.disabled = redoStack.length === 0;
+        }
+    });
+
+    // Обработка кнопки Redo
+    redoButton.addEventListener('click', function () {
+        if (redoStack.length > 0) {
+            const lastRedo = redoStack.pop(); // Извлекаем последнее отменённое изменение
+            const { cell, oldValue, newValue, documentId, field } = lastRedo;
+            cell.innerText = newValue;
+
+            // Добавляем изменение обратно в стек отмен
+            undoStack.push({
+                cell: cell,
+                oldValue: oldValue,
+                newValue: newValue,
+                documentId: documentId,
+                field: field
+            });
+
+            // Отправляем AJAX-запрос для восстановления нового значения
+            fetch("{% url 'staffs:update_document_field' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: `document_id=${documentId}&field=${field}&value=${encodeURIComponent(newValue)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    cell.classList.add('bg-green-100', 'animate-pulse');
+                } else {
+                    cell.classList.add('bg-red-100', 'animate-pulse');
+                    alert(data.message);
+                    cell.innerText = oldValue; // Возвращаем старое значение при ошибке
+                    redoStack.push(lastRedo); // Возвращаем изменение в стек повторного применения
+                    undoStack.pop(); // Удаляем из стека отмен
+                }
+            })
+            .catch(error => {
+                cell.classList.add('bg-red-100', 'animate-pulse');
+                alert('Error: ' + error);
+                cell.innerText = oldValue; // Возвращаем старое значение при ошибке
+                redoStack.push(lastRedo); // Возвращаем изменение в стек повторного применения
+                undoStack.pop(); // Удаляем из стека отмен
+            });
+
+            // Обновляем состояние кнопок
+            undoButton.disabled = undoStack.length === 0;
+            redoButton.disabled = redoStack.length === 0;
+        }
+    });
+});
+</script>
+{% endblock %}

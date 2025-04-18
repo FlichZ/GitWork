@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block content %}
+<section class="text-gray-600 body-font">
+    <div class="container px-5 py-24 mx-auto">
+        <div class="flex flex-col text-center w-full mb-12">
+            <h2 class="text-xs text-indigo-500 tracking-widest font-medium title-font mb-1">{% trans "RECEIVED DOCUMENTS" %}</h2>
+            <h1 class="sm:text-3xl text-2xl font-medium title-font mb-4 text-gray-900">{% trans "All Your Received Documents Appear Here" %}</h1>
+            <!-- Фильтр по статусу -->
+            <div class="flex justify-center mt-4">
+                <form method="get" class="flex space-x-3">
+                    <select name="status" class="bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200 mr-5">
+                        <option value="">{% trans "All Statuses" %}</option>
+                        {% for status, label in status_choices %}
+                            <option value="{{ status }}" {% if status == current_status %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="text-white bg-indigo-500 border-0 py-2 px-4 focus:outline-none hover:bg-indigo-600 rounded text-base">{% trans "Filter" %}</button>
+                </form>
+            </div>
+        </div>
+        <div class="flex flex-wrap mt-4">
+            {% for document in documents %}
+            <div class="p-4 md:w-1/3">
+                <div class="flex rounded-lg h-full bg-gray-100 p-8 flex-col shadow-md hover:shadow-lg transition duration-200">
+                    <div class="flex items-center mb-3">
+                        <div class="w-8 h-8 mr-3 inline-flex items-center justify-center rounded-full bg-indigo-500 text-white flex-shrink-0">
+                            <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-5 h-5" viewBox="0 0 24 24">
+                                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </div>
+                        <h2 class="text-gray-900 text-lg title-font font-medium">{{ document.document_name }}</h2>
+                    </div>
+                    <div class="flex-grow">
+                        <p class="leading-relaxed text-base">{{ document.document_description|truncatewords:20 }}</p>
+                        <div class="mt-3">
+                            <span class="inline-block px-3 py-1 text-sm font-semibold text-white rounded-full
+                                {% if document.status == 'draft' %}bg-gray-500
+                                {% elif document.status == 'sent' %}bg-blue-500
+                                {% elif document.status == 'received' %}bg-green-500
+                                {% elif document.status == 'archived' %}bg-purple-500
+                                {% endif %}">
+                                {% trans document.status %}
+                            </span>
+                        </div>
+                        <div class="mt-4 flex justify-between items-center">
+                            <a href="{% url 'staffs:document-detail' document.id %}" class="text-indigo-500 inline-flex items-center mr-5">{% trans "View Details" %}
+                                <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                    <path d="M5 12h14M12 5l7 7-7 7"></path>
+                                </svg>
+                            </a>
+                            <a href="{{ document.document_content.url }}" class="text-indigo-500 inline-flex items-center">{% trans "Download" %}
+                                <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                    <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="w-full text-center">
+                <p class="text-gray-500">{% trans "No documents received yet." %}</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Пагинация -->
+        {% if page_obj.has_other_pages %}
+        <div class="flex justify-center mt-8">
+            <nav class="inline-flex rounded-md shadow">
+                <!-- Предыдущая страница -->
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-700 hover:bg-gray-200 mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                {% else %}
+                <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-400 cursor-not-allowed mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </span>
+                {% endif %}
+
+                <!-- Номера страниц -->
+                {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                <span class="px-3 py-2 bg-indigo-500 text-white border border-indigo-500 mr-1">{{ num }}</span>
+                {% else %}
+                <a href="?page={{ num }}{% if current_status %}&status={{ current_status }}{% endif %}" class="px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 mr-1">{{ num }}</a>
+                {% endif %}
+                {% endfor %}
+
+                <!-- Следующая страница -->
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </a>
+                {% else %}
+                <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-400 cursor-not-allowed">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </span>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock content %}

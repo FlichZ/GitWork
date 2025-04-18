@@ -1,0 +1,274 @@
+{% load static i18n %}
+<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/output.css' %}">
+    <title>{% block title %}{% trans "CSIS-Memo" %}{% endblock %}</title>
+</head>
+<body>
+   <header class="text-gray-600 body-font min-h-16 z-1">
+  <div class="container mx-auto flex p-5 flex-col md:flex-row md:flex-nowrap items-center">
+    <a class="flex title-font font-medium items-center text-gray-900 mb-4 md:mb-0">
+      <span class="ml-3 text-xl">{% trans "Memo Tracker" %}</span>
+    </a>
+    <nav class="md:mr-auto md:ml-4 md:py-1 md:pl-4 md:border-l md:border-gray-400 flex flex-wrap items-center text-base justify-center">
+        {% if not request.user.is_authenticated %}
+      <a href="{% url 'landing-page' %}" class="mr-5 hover:text-gray-900 flex items-center">
+          {% trans "Home" %}
+          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+          </svg>
+      </a>
+        {% else %}
+      <a href="{% url 'select-send-or-receive' %}" class="mr-5 hover:text-gray-900 flex items-center">
+          {% trans "Home" %}
+          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+          </svg>
+      </a>
+        {% endif %}
+
+      <!-- Выпадающее меню "Documents" -->
+      <div class="relative mr-5 dropdown">
+          <button class="flex items-center hover:text-gray-900 focus:outline-none dropdown-toggle">
+              {% trans "Documents" %}
+              <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+          </button>
+          <div class="absolute dropdown-menu bg-white shadow-lg rounded-md mt-2 z-50 w-48" hidden>
+              <a href="{% url 'staffs:send-document' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
+                  {% trans "Send Documents" %}
+                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                  </svg>
+              </a>
+              <a href="{% url 'staffs:receive-document' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
+                  {% trans "Receive Documents" %}
+                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5l-9 2 9 18 9-18-9-2zm0 0v8"></path>
+                  </svg>
+              </a>
+          </div>
+      </div>
+
+      <a href="{% url 'staffs:dashboard' %}" class="mr-5 hover:text-gray-900 flex items-center">
+          {% trans "Dashboard" %}
+          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+          </svg>
+      </a>
+      <a href="{% url 'staffs:notifications' %}" class="mr-5 hover:text-gray-900 flex items-center">
+          {% trans "Notifications" %}
+          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+          </svg>
+      </a>
+
+      <!-- Выпадающее меню "Logs" -->
+      {% if request.user.is_authenticated %}
+      <div class="relative mr-5 dropdown">
+          <button class="flex items-center hover:text-gray-900 focus:outline-none dropdown-toggle">
+              {% trans "Logs" %}
+              <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+          </button>
+
+          <div class="absolute dropdown-menu bg-white shadow-lg rounded-md mt-2 z-50 w-48" hidden>
+              {% if request.user.organization.is_prime_tech %}
+              <a href="{% url 'staffs:status_log_console' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
+                  {% trans "Status Log Console" %}
+                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-6 4h6m-6 4h6"></path>
+                  </svg>
+              </a>
+              {% endif %}
+              {% if request.user.role == 'admin' %}
+              <a href="{% url 'staffs:user_action_log' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
+                  {% trans "User Action Log" %}
+                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-6 4h6m-6 4h6"></path>
+                  </svg>
+              </a>
+              {% endif %}
+
+
+              {% if request.user.is_authenticated and request.user.role == 'admin' %}
+              <a href="{% url 'staffs:user_management' %}" class="mr-5 hover:text-gray-900 flex items-center">
+                  {% trans "User Management" %}
+                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M8.5 3a4 4 0 100 8 4 4 0 000-8z"></path>
+                  </svg>
+              </a>
+              {% endif %}
+          </div>
+      </div>
+      {% endif %}
+        {% if request.user.organization.is_prime_tech %}
+              <a href="{% url 'staffs:document_log' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
+                  {% trans "Document Log" %}
+                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-6 4h6m-6 4h6"></path>
+                  </svg>
+              </a>
+        {% endif %}
+
+    </nav>
+    <!-- Переключатель языка в шапке -->
+    <form action="{% url 'set_language' %}" method="post" class="inline-flex items-center">
+        {% csrf_token %}
+        <select name="language" onchange="this.form.submit()" class="mr-3 inline-flex bg-gray-100 border-3 py-1 px-3 rounded text-base focus:outline-none hover:bg-gray-200">
+            {% get_current_language as LANGUAGE_CODE %}
+            {% get_available_languages as LANGUAGES %}
+            {% for lang in LANGUAGES %}
+                <option value="{{ lang.0 }}" {% if lang.0 == LANGUAGE_CODE %}selected{% endif %}>
+                    {{ lang.1 }}
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+
+    {% if request.user.is_authenticated %}
+       {% if request.user.can_add_user %}
+      <a href="{% url 'staffs:add-user' %}" class="mr-5 inline-flex items-center bg-gray-100 border-0 py-1 px-3 focus:outline-none hover:bg-gray-200 rounded text-gray-700 mt-4 md:mt-0">{% trans "Add User" %}
+        <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-1" viewBox="0 0 24 24">
+          <path d="M5 12h14M12 5l7 7-7 7"></path>
+        </svg>
+      </a>
+      {% endif %}
+
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="inline-flex items-center bg-gray-100 border-0 py-1 px-3 focus:outline-none hover:bg-gray-200 rounded text-gray-700 mt-4 md:mt-0">
+            {% trans "Log Out" %}
+            <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-1" viewBox="0 0 24 24">
+                <path d="M5 12h14M12 5l7 7-7 7"></path>
+            </svg>
+        </button>
+      </form>
+    {% else %}
+      <a href="{% url 'login' %}" class="inline-flex items-center bg-gray-100 border-0 py-1 px-3 focus:outline-none hover:bg-gray-200 rounded text-gray-700 mt-4 md:mt-0">{% trans "Login" %}
+        <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-1" viewBox="0 0 24 24">
+          <path d="M5 12h14M12 5l7 7-7 7"></path>
+        </svg>
+      </a>
+    {% endif %}
+  </div>
+</header>
+
+<!-- Отображение уведомлений -->
+<div class="container mx-auto mt-4 px-4">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="flex items-center p-4 mb-4 text-sm rounded-lg alert
+        {% if message.tags == 'success' %}bg-green-100 text-green-700 border border-green-400
+        {% elif message.tags == 'error' %}bg-red-100 text-red-700 border border-red-400
+        {% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-700 border border-yellow-400
+        {% else %}bg-blue-100 text-blue-700 border border-blue-400{% endif %}" role="alert">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span>{{ message }}</span>
+        <button class="ml-auto text-gray-500 hover:text-gray-700" onclick="this.parentElement.remove()">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+    {% block content %}
+    <div class="container mx-auto mt-8 px-4">
+        <div class="flex flex-wrap -mx-4">
+            <!-- Отправить документ -->
+            <div class="w-full md:w-1/2 px-4 mb-8">
+                <div class="text-center">
+                    <img src="{% static 'images/send-document.png' %}" alt="Send Document" class="mx-auto mb-4">
+                    <h2 class="text-xl font-semibold mb-2">{% trans "Send Document" %}</h2>
+                    <p class="text-gray-600 mb-4">
+                        {% trans "Register documents sent by users within and outside CSIS. When sending documents to users within CSIS, it is recommended to register the document in the system." %}
+                    </p>
+                    <a href="{% url 'staffs:send-document' %}" class="inline-block bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600">
+                        {% trans "Send" %}
+                    </a>
+                </div>
+            </div>
+
+            <!-- Получить документ -->
+            <div class="w-full md:w-1/2 px-4 mb-8">
+                <div class="text-center">
+                    <img src="{% static 'images/receive-document.png' %}" alt="Receive Document" class="mx-auto mb-4">
+                    <h2 class="text-xl font-semibold mb-2">{% trans "Receive Document" %}</h2>
+                    <p class="text-gray-600 mb-4">
+                        {% trans "Register documents received from sources and users outside CSIS. When receiving documents from users within CSIS, it is recommended that the document be sent as completed." %}
+                    </p>
+                    <a href="{% url 'staffs:receive-document' %}" class="inline-block bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600">
+                        {% trans "Receive" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock content %}
+
+<!-- JavaScript для автоматического скрытия уведомлений и управления выпадающими списками -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Автоматическое скрытие уведомлений
+    const messages = document.querySelectorAll('.alert');
+    messages.forEach(message => {
+        setTimeout(() => {
+            message.style.transition = 'opacity 0.3s';
+            message.style.opacity = '0';
+            setTimeout(() => message.remove(), 300);
+        }, 5000);
+    });
+
+    // Управление выпадающими списками
+    const dropdowns = document.querySelectorAll('.dropdown');
+    dropdowns.forEach(dropdown => {
+        const toggle = dropdown.querySelector('.dropdown-toggle');
+        const menu = dropdown.querySelector('.dropdown-menu');
+
+        // Убедитесь, что меню изначально скрыто
+        menu.setAttribute('hidden', '');
+
+        // Открытие/закрытие при клике
+        toggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (menu.hasAttribute('hidden')) {
+                menu.removeAttribute('hidden');
+            } else {
+                menu.setAttribute('hidden', '');
+            }
+        });
+
+        // Закрытие при клике вне меню
+        document.addEventListener('click', function (e) {
+            if (!dropdown.contains(e.target)) {
+                menu.setAttribute('hidden', '');
+            }
+        });
+
+        // Добавляем обработчики наведения только после полной загрузки
+        window.addEventListener('load', function () {
+            dropdown.addEventListener('mouseenter', function () {
+                menu.removeAttribute('hidden');
+            });
+
+            dropdown.addEventListener('mouseleave', function () {
+                menu.setAttribute('hidden', '');
+            });
+        });
+    });
+});
+</script>
+</body>
+</html>

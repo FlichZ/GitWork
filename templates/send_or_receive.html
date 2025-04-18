@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block content %}
+    <section class="text-gray-600 body-font">
+        <div class="container px-5 py-24 mx-auto">
+          <div class="flex flex-wrap -mx-4 -mb-10 text-center">
+            {% if request.user.is_authenticated %}
+            <div class="sm:w-1/2 mb-10 px-4">
+              <div class="rounded-lg h-64 overflow-hidden">
+                <img alt="content" class="object-cover object-center h-full w-full" src="{% static 'images/send_image.jpg' %}">
+              </div>
+              <h2 class="title-font text-2xl font-medium text-gray-900 mt-6 mb-3">{% trans "Send Document" %}</h2>
+              <p class="leading-relaxed text-base">{% trans "Register documents sent to people within and outside CSIS. When sending documents to people within CSIS, it is recommended that you register the document on the system first before sending." %}</p>
+              <a href="{% url 'staffs:send-document' %}" class="inline-flex mx-auto mt-6 text-white bg-indigo-500 border-0 py-2 px-5 focus:outline-none hover:bg-indigo-600 rounded">{% trans "Send" %}</a>
+            </div>
+            <div class="sm:w-1/2 mb-10 px-4">
+            {% else %}
+            <div class="mb-10 px-4">
+            {% endif %}
+
+              <div class="rounded-lg h-64 overflow-hidden">
+                <img alt="content" class="object-cover object-center h-full w-full" src="{% static 'images/receive_image.jpg' %}">
+              </div>
+              <h2 class="title-font text-2xl font-medium text-gray-900 mt-6 mb-3">{% trans "Receive Document" %}</h2>
+              <p class="leading-relaxed text-base">{% trans "Register documents that have been received from within and outside CSIS. When receiving documents from people within CSIS, it is recommended that the document should have been sent first." %}</p>
+              <a href="{% url 'staffs:receive-document' %}" class="inline-flex mx-auto mt-6 text-white bg-indigo-500 border-0 py-2 px-5 focus:outline-none hover:bg-indigo-600 rounded">{% trans "Receive" %}</a>
+            </div>
+
+          </div>
+        </div>
+      </section>
+{% endblock content %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load i18n tailwind_filters crispy_forms_tags %}
+
+{% block content %}
+    <div class="max-w-lg mx-auto mt-10">
+        <h1 class="text-center title-font sm:text-4xl text-3xl mb-4 mt-4 font-medium text-gray-500">{% trans "Create Organization" %}</h1>
+        <form action="" method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <button type="submit" class="w-full text-white bg-indigo-500 border-0 py-2 px-6 focus:outline-none hover:bg-indigo-600 rounded text-lg">{% trans "Add Organization" %}</button>
+        </form>
+    </div>
+
+    <style>
+        input {
+            border: 1px solid #e0e0e0;
+        }
+        strong {
+            color: red;
+        }
+    </style>
+{% endblock content %}

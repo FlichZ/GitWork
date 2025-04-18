@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n tailwind_filters crispy_forms_tags %}
+
+{% block content %}
+    <div class="max-w-lg mx-auto mt-10">
+        <h1 class="text-center title-font sm:text-4xl text-3xl mb-4 mt-4 font-medium text-gray-500">{% trans "Create User" %}</h1>
+        <form action="" method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <a href="{% url 'staffs:add-organization' %}" class="mr-5 inline-flex items-center bg-gray-100 border-0 py-1 px-3 focus:outline-none hover:bg-gray-200 rounded text-gray-700 mt-4 md:mt-0">{% trans "Add Org" %}
+            <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-1" viewBox="0 0 24 24">
+              <path d="M5 12h14M12 5l7 7-7 7"></path>
+            </svg>
+            </a>
+             <br><br>
+            <button type="submit" class="w-full text-white bg-indigo-500 border-0 py-2 px-6 focus:outline-none hover:bg-indigo-600 rounded text-lg">{% trans "Add User" %}</button>
+        </form>
+    </div>
+
+    <style>
+        input {
+            border: 1px solid #e0e0e0;
+        }
+        strong {
+            color: red;
+        }
+    </style>
+{% endblock content %}

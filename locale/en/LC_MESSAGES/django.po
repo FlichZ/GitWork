@@ -1,0 +1,739 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-04-08 03:54+0300\n"
+"PO-Revision-Date: 2025-03-25 00:00+0000\n"
+"Last-Translator: Grok <grok@xai.com>\n"
+"Language-Team: English <en@li.org>\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: staffs/templates/staffs/add_user.html:6
+msgid "Create User"
+msgstr ""
+
+#: staffs/templates/staffs/add_user.html:10 templates/base.html:138
+msgid "Add User"
+msgstr "Add User"
+
+#: staffs/templates/staffs/basic_documents.html:7
+#, fuzzy
+#| msgid "Documents"
+msgid "Basic Documents"
+msgstr "Documents"
+
+#: staffs/templates/staffs/basic_documents.html:8
+msgid ""
+"Here you can download basic documents provided by PrimeTech, such as "
+"formatting rules and guidelines."
+msgstr ""
+
+#: staffs/templates/staffs/basic_documents.html:19
+#: staffs/templates/staffs/dashboard.html:128
+#: staffs/templates/staffs/dashboard.html:226
+#: staffs/templates/staffs/receive.html:54
+msgid "Download"
+msgstr ""
+
+#: staffs/templates/staffs/basic_documents.html:23
+#: staffs/templates/staffs/document_log.html:66
+msgid "No documents available."
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:9 templates/base.html:60
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#: staffs/templates/staffs/dashboard.html:10
+msgid "Manage your sent and received documents here."
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:14
+msgid "Total Sent"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:18
+#, fuzzy
+#| msgid "Receive"
+msgid "Total Received"
+msgstr "Receive"
+
+#: staffs/templates/staffs/dashboard.html:22
+msgid "Drafts"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:26
+msgid "Archived"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:30
+#, fuzzy
+#| msgid "Documents"
+msgid "Total Documents"
+msgstr "Documents"
+
+#: staffs/templates/staffs/dashboard.html:34
+msgid "Sent Status"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:38
+#, fuzzy
+#| msgid "Receive"
+msgid "Received Status"
+msgstr "Receive"
+
+#: staffs/templates/staffs/dashboard.html:49
+#: staffs/templates/staffs/receive.html:14
+msgid "All Statuses"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:56
+#: staffs/templates/staffs/status_log_console.html:16
+msgid "Start Date"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:57
+#: staffs/templates/staffs/status_log_console.html:17
+msgid "End Date"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:61
+#: staffs/templates/staffs/user_management.html:39
+msgid "All Organizations"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:68
+msgid "Sort by Date"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:69
+msgid "Sort by Status"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:72
+msgid "Descending"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:73
+msgid "Ascending"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:75
+#: staffs/templates/staffs/status_log_console.html:21
+#: staffs/templates/staffs/user_action_log.html:22
+#: staffs/templates/staffs/user_management.html:50
+msgid "Apply Filters"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:76
+#: staffs/templates/staffs/status_log_console.html:22
+#: staffs/templates/staffs/user_action_log.html:23
+#: staffs/templates/staffs/user_management.html:51
+msgid "Reset Filters"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:84
+#, fuzzy
+#| msgid "Send Documents"
+msgid "Sent Documents"
+msgstr "Send Documents"
+
+#: staffs/templates/staffs/dashboard.html:87
+#, fuzzy
+#| msgid "Receive Documents"
+msgid "Received Documents"
+msgstr "Receive Documents"
+
+#: staffs/templates/staffs/dashboard.html:122
+#: staffs/templates/staffs/dashboard.html:220
+#: staffs/templates/staffs/receive.html:49
+msgid "View Details"
+msgstr ""
+
+#: staffs/templates/staffs/dashboard.html:140
+#, fuzzy
+#| msgid "Send Documents"
+msgid "No sent documents yet."
+msgstr "Send Documents"
+
+#: staffs/templates/staffs/dashboard.html:238
+#, fuzzy
+#| msgid "Receive Documents"
+msgid "No received documents yet."
+msgstr "Receive Documents"
+
+#: staffs/templates/staffs/document_detail.html:13
+msgid "Status"
+msgstr ""
+
+#: staffs/templates/staffs/document_detail.html:16
+msgid "Change Status"
+msgstr ""
+
+#: staffs/templates/staffs/document_detail.html:23
+#: staffs/templates/staffs/document_log.html:42
+#, fuzzy
+#| msgid "Send"
+msgid "Sender"
+msgstr "Send"
+
+#: staffs/templates/staffs/document_detail.html:24
+#: staffs/templates/staffs/document_log.html:38
+msgid "Recipient"
+msgstr ""
+
+#: staffs/templates/staffs/document_detail.html:25
+msgid "Date Created"
+msgstr ""
+
+#: staffs/templates/staffs/document_detail.html:27
+#, fuzzy
+#| msgid "Receive"
+msgid "Date Received"
+msgstr "Receive"
+
+#: staffs/templates/staffs/document_detail.html:31
+msgid "Status Change Log"
+msgstr ""
+
+#: staffs/templates/staffs/document_detail.html:37
+#, fuzzy
+#| msgid "Send Document"
+msgid "Download Document"
+msgstr "Send Document"
+
+#: staffs/templates/staffs/document_detail.html:43
+#, fuzzy
+#| msgid "Receive Document"
+msgid "Delete Document"
+msgstr "Receive Document"
+
+#: staffs/templates/staffs/document_detail.html:92
+msgid "Are you sure you want to delete this document?"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:8 templates/base.html:114
+msgid "Document Log"
+msgstr "Document Log"
+
+#: staffs/templates/staffs/document_log.html:14
+msgid "Undo"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:20
+msgid "Redo"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:26
+msgid "Download as Excel"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:36
+msgid "Outgoing Number"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:37
+msgid "Date Sent/Accepted"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:39
+msgid "Summary"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:40
+msgid "Page Count"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:41
+msgid "Attachment"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:43
+msgid "Method"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:44
+msgid "Date Sent"
+msgstr ""
+
+#: staffs/templates/staffs/document_log.html:45
+#, fuzzy
+#| msgid "Receive"
+msgid "🙂 Received"
+msgstr "Receive"
+
+#: staffs/templates/staffs/document_log.html:46
+msgid "Note"
+msgstr ""
+
+#: staffs/templates/staffs/notifications.html:8 templates/base.html:66
+msgid "Notifications"
+msgstr "Notifications"
+
+#: staffs/templates/staffs/notifications.html:9
+#, fuzzy
+#| msgid "Notifications"
+msgid "View your notifications."
+msgstr "Notifications"
+
+#: staffs/templates/staffs/notifications.html:26
+msgid "Mark as Read"
+msgstr ""
+
+#: staffs/templates/staffs/notifications.html:32
+#, fuzzy
+#| msgid "Notifications"
+msgid "No notifications found."
+msgstr "Notifications"
+
+#: staffs/templates/staffs/receive.html:8
+msgid "RECEIVED DOCUMENTS"
+msgstr ""
+
+#: staffs/templates/staffs/receive.html:9
+#, fuzzy
+#| msgid "Receive Documents"
+msgid "All Your Received Documents Appear Here"
+msgstr "Receive Documents"
+
+#: staffs/templates/staffs/receive.html:19
+msgid "Filter"
+msgstr ""
+
+#: staffs/templates/staffs/receive.html:65
+msgid "No documents received yet."
+msgstr ""
+
+#: staffs/templates/staffs/send.html:8
+#, fuzzy
+#| msgid "Send Document"
+msgid "Send a Document"
+msgstr "Send Document"
+
+#: staffs/templates/staffs/send.html:9
+msgid "Fill out the form below to send a document to a recipient."
+msgstr ""
+
+#: staffs/templates/staffs/send.html:17
+msgid "Uploading file..."
+msgstr ""
+
+#: staffs/templates/staffs/send.html:23 templates/base.html:199
+#: templates/send_or_receive.html:15
+msgid "Send"
+msgstr "Send"
+
+#: staffs/templates/staffs/send.html:24
+msgid "Clear Form"
+msgstr ""
+
+#: staffs/templates/staffs/status_log_console.html:8
+#, fuzzy
+#| msgid "Status Log Console"
+msgid "Status Change Log Console"
+msgstr "Status Log Console"
+
+#: staffs/templates/staffs/status_log_console.html:9
+msgid "View all status change logs for documents."
+msgstr ""
+
+#: staffs/templates/staffs/status_log_console.html:19
+#: staffs/templates/staffs/user_action_log.html:15
+msgid "Filter by user"
+msgstr ""
+
+#: staffs/templates/staffs/status_log_console.html:20
+msgid "Filter by document name"
+msgstr ""
+
+#: staffs/templates/staffs/status_log_console.html:28
+msgid "Export to CSV"
+msgstr ""
+
+#: staffs/templates/staffs/status_log_console.html:37
+#: staffs/templates/staffs/user_action_log.html:33
+msgid "Timestamp"
+msgstr ""
+
+#: staffs/templates/staffs/status_log_console.html:38
+#, fuzzy
+#| msgid "Documents"
+msgid "Document"
+msgstr "Documents"
+
+#: staffs/templates/staffs/status_log_console.html:39
+#: staffs/templates/staffs/user_action_log.html:34
+#, fuzzy
+#| msgid "Add User"
+msgid "User"
+msgstr "Add User"
+
+#: staffs/templates/staffs/status_log_console.html:40
+msgid "Old Status"
+msgstr ""
+
+#: staffs/templates/staffs/status_log_console.html:41
+msgid "New Status"
+msgstr ""
+
+#: staffs/templates/staffs/status_log_console.html:57
+#: staffs/templates/staffs/user_action_log.html:51
+msgid "No logs found."
+msgstr ""
+
+#: staffs/templates/staffs/user_action_log.html:8 templates/base.html:93
+msgid "User Action Log"
+msgstr "User Action Log"
+
+#: staffs/templates/staffs/user_action_log.html:9
+msgid "View all actions performed on users."
+msgstr ""
+
+#: staffs/templates/staffs/user_action_log.html:17
+msgid "All Actions"
+msgstr ""
+
+#: staffs/templates/staffs/user_action_log.html:35
+msgid "Action"
+msgstr ""
+
+#: staffs/templates/staffs/user_action_log.html:36
+msgid "Details"
+msgstr ""
+
+#: staffs/templates/staffs/user_action_log.html:37
+msgid "Performed By"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:8 templates/base.html:103
+msgid "User Management"
+msgstr "User Management"
+
+#: staffs/templates/staffs/user_management.html:9
+msgid "Manage users, their roles, and organizations."
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:13
+msgid "Total Users"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:17
+msgid "Admins"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:21
+msgid "Managers"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:25
+msgid "Staff"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:29
+msgid "External"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:45
+msgid "All Roles"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:61
+#, fuzzy
+#| msgid "User Management"
+msgid "Username"
+msgstr "User Management"
+
+#: staffs/templates/staffs/user_management.html:62
+msgid "Organization"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:63
+msgid "Role"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:64
+#, fuzzy
+#| msgid "Notifications"
+msgid "Actions"
+msgstr "Notifications"
+
+#: staffs/templates/staffs/user_management.html:80
+msgid "Delete"
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:85
+msgid "No users found."
+msgstr ""
+
+#: staffs/templates/staffs/user_management.html:176
+msgid "Are you sure you want to delete this user?"
+msgstr ""
+
+#: staffs/views.py:51
+msgid "You do not have permission to view this document."
+msgstr ""
+
+#: staffs/views.py:64
+msgid "File not found on server: "
+msgstr ""
+
+#: staffs/views.py:81
+msgid "The DOCX file is empty or contains no readable text."
+msgstr ""
+
+#: staffs/views.py:108
+msgid "Preview not available for this file type."
+msgstr ""
+
+#: staffs/views.py:112
+msgid "Error generating preview: "
+msgstr ""
+
+#: staffs/views.py:114
+msgid "No file attached to this document."
+msgstr ""
+
+#: staffs/views.py:149
+msgid "You do not have permission to download this page."
+msgstr ""
+
+#: staffs/views.py:182
+msgid "Page not found."
+msgstr ""
+
+#: staffs/views.py:185
+msgid "Error generating page for download: "
+msgstr ""
+
+#: staffs/views.py:273 staffs/views.py:714
+msgid "Invalid start date format. Use YYYY-MM-DD."
+msgstr ""
+
+#: staffs/views.py:279 staffs/views.py:724
+msgid "Invalid end date format. Use YYYY-MM-DD."
+msgstr ""
+
+#: staffs/views.py:377
+msgid "Document sent successfully."
+msgstr ""
+
+#: staffs/views.py:404
+msgid "Some documents have been marked as received."
+msgstr ""
+
+#: staffs/views.py:433
+msgid "You do not have permission to add users."
+msgstr ""
+
+#: staffs/views.py:439
+msgid "User added successfully!"
+msgstr ""
+
+#: staffs/views.py:452 staffs/views.py:632
+msgid "Only PrimeTech organizations can access this page."
+msgstr ""
+
+#: staffs/views.py:556
+msgid "Only PrimeTech organizations can edit this table."
+msgstr ""
+
+#: staffs/views.py:573
+msgid "Invalid date format. Use DD.MM.YYYY."
+msgstr ""
+
+#: staffs/views.py:578
+msgid "Page count must be a positive integer."
+msgstr ""
+
+#: staffs/views.py:581
+msgid "Page count must be a number."
+msgstr ""
+
+#: staffs/views.py:594
+msgid "Field updated successfully."
+msgstr ""
+
+#: staffs/views.py:597 staffs/views.py:621
+#, fuzzy
+#| msgid "Document Log"
+msgid "Document not found."
+msgstr "Document Log"
+
+#: staffs/views.py:606
+msgid "Only PrimeTech organizations can change document status."
+msgstr ""
+
+#: staffs/views.py:618
+msgid "Status updated successfully."
+msgstr ""
+
+#: staffs/views.py:619
+msgid "Invalid status."
+msgstr ""
+
+#: staffs/views.py:765 staffs/views.py:876
+msgid "Only admins can access this page."
+msgstr ""
+
+#: staffs/views.py:817
+msgid "Only admins can change user roles."
+msgstr ""
+
+#: staffs/views.py:835
+msgid "User role updated successfully."
+msgstr ""
+
+#: staffs/views.py:836
+msgid "Invalid role."
+msgstr ""
+
+#: staffs/views.py:838 staffs/views.py:866
+msgid "User not found."
+msgstr ""
+
+#: staffs/views.py:848
+msgid "Only admins can delete users."
+msgstr ""
+
+#: staffs/views.py:855
+msgid "You cannot delete yourself."
+msgstr ""
+
+#: staffs/views.py:864
+msgid "User deleted successfully."
+msgstr ""
+
+#: staffs/views.py:919
+#, fuzzy
+#| msgid "Notifications"
+msgid "Notification marked as read."
+msgstr "Notifications"
+
+#: staffs/views.py:920
+#, fuzzy
+#| msgid "Notifications"
+msgid "Notification not found."
+msgstr "Notifications"
+
+#: templates/base.html:10
+msgid "CSIS-Memo"
+msgstr "CSIS-Memo"
+
+#: templates/base.html:16
+msgid "Memo Tracker"
+msgstr "Memo Tracker"
+
+#: templates/base.html:21 templates/base.html:28
+msgid "Home"
+msgstr "Home"
+
+#: templates/base.html:38
+msgid "Documents"
+msgstr "Documents"
+
+#: templates/base.html:45
+msgid "Send Documents"
+msgstr "Send Documents"
+
+#: templates/base.html:51
+msgid "Receive Documents"
+msgstr "Receive Documents"
+
+#: templates/base.html:76
+msgid "Logs"
+msgstr "Logs"
+
+#: templates/base.html:85
+msgid "Status Log Console"
+msgstr "Status Log Console"
+
+#: templates/base.html:148
+msgid "Log Out"
+msgstr "Log Out"
+
+#: templates/base.html:155 templates/landing_page.html:15
+#: templates/registration/login.html:10 templates/registration/login.html:14
+#: templates/registration/login.html:18
+msgid "Login"
+msgstr "Login"
+
+#: templates/base.html:194 templates/send_or_receive.html:13
+msgid "Send Document"
+msgstr "Send Document"
+
+#: templates/base.html:196
+msgid ""
+"Register documents sent by users within and outside CSIS. When sending "
+"documents to users within CSIS, it is recommended to register the document "
+"in the system."
+msgstr ""
+"Register documents sent by users within and outside CSIS. When sending "
+"documents to users within CSIS, it is recommended to register the document "
+"in the system."
+
+#: templates/base.html:208 templates/send_or_receive.html:25
+msgid "Receive Document"
+msgstr "Receive Document"
+
+#: templates/base.html:210
+msgid ""
+"Register documents received from sources and users outside CSIS. When "
+"receiving documents from users within CSIS, it is recommended that the "
+"document be sent as completed."
+msgstr ""
+"Register documents received from sources and users outside CSIS. When "
+"receiving documents from users within CSIS, it is recommended that the "
+"document be sent as completed."
+
+#: templates/base.html:213 templates/send_or_receive.html:27
+msgid "Receive"
+msgstr "Receive"
+
+#: templates/landing_page.html:12
+#, fuzzy
+#| msgid "Memo Tracker"
+msgid "Memo Tracking System"
+msgstr "Memo Tracker"
+
+#: templates/landing_page.html:13
+msgid ""
+"This is an application to keep track of all incoming and outgoing documents "
+"in the Center For Systems And Information Services (CSIS)."
+msgstr ""
+
+#: templates/landing_page.html:16
+msgid "Visit Site"
+msgstr ""
+
+#: templates/send_or_receive.html:14
+#, fuzzy
+#| msgid ""
+#| "Register documents sent by users within and outside CSIS. When sending "
+#| "documents to users within CSIS, it is recommended to register the "
+#| "document in the system."
+msgid ""
+"Register documents sent to people within and outside CSIS. When sending "
+"documents to people within CSIS, it is recommended that you register the "
+"document on the system first before sending."
+msgstr ""
+"Register documents sent by users within and outside CSIS. When sending "
+"documents to users within CSIS, it is recommended to register the document "
+"in the system."
+
+#: templates/send_or_receive.html:26
+#, fuzzy
+#| msgid ""
+#| "Register documents received from sources and users outside CSIS. When "
+#| "receiving documents from users within CSIS, it is recommended that the "
+#| "document be sent as completed."
+msgid ""
+"Register documents that have been received from within and outside CSIS. "
+"When receiving documents from people within CSIS, it is recommended that the "
+"document should have been sent first."
+msgstr ""
+"Register documents received from sources and users outside CSIS. When "
+"receiving documents from users within CSIS, it is recommended that the "
+"document be sent as completed."

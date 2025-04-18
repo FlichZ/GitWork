@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block content %}
+<section class="text-gray-600 body-font">
+    <div class="container px-5 py-24 mx-auto">
+        <div class="flex flex-col text-center w-full mb-12">
+            <h1 class="sm:text-3xl text-2xl font-medium title-font mb-4 text-gray-900">{{ document.document_name }}</h1>
+        </div>
+        <div class="lg:w-2/3 w-full mx-auto bg-white rounded-lg shadow-lg p-8">
+            <p class="leading-relaxed text-base mb-4">{{ document.document_description }}</p>
+            <div class="mb-2 flex items-center">
+                <p class="mr-4"><strong>{% trans "Status" %}:</strong> {% trans document.status %}</p>
+                {% if is_prime_tech %}
+                <select class="bg-gray-100 border-0 py-1 px-2 rounded text-sm focus:outline-none hover:bg-gray-200 change-status" data-document-id="{{ document.id }}">
+                    <option value="">{% trans "Change Status" %}</option>
+                    {% for status, label in status_choices %}
+                        <option value="{{ status }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+            </div>
+            <p class="mb-2"><strong>{% trans "Sender" %}:</strong> {{ document.sender.username }}</p>
+            <p class="mb-2"><strong>{% trans "Recipient" %}:</strong> {{ document.recipient.username }}</p>
+            <p class="mb-2"><strong>{% trans "Date Created" %}:</strong> {{ document.date_created }}</p>
+            {% if document.date_received %}
+            <p class="mb-2"><strong>{% trans "Date Received" %}:</strong> {{ document.date_received }}</p>
+            {% endif %}
+            {% if document.status_change_log %}
+            <div class="mt-4">
+                <p class="font-semibold">{% trans "Status Change Log" %}:</p>
+                <pre class="text-sm text-gray-600">{{ document.status_change_log }}</pre>
+            </div>
+            {% endif %}
+            <div class="mt-4 flex items-center space-x-4">
+                {% if document.document_content %}
+                <a href="{{ document.document_content.url }}" class="text-indigo-500 inline-flex items-center">{% trans "Download Document" %}
+                    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                        <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                </a>
+                {% if is_prime_tech %}
+                <button class="text-red-500 inline-flex items-center delete-document" data-document-id="{{ document.id }}">{% trans "Delete Document" %}
+                    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                        <path d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+                {% endif %}
+                {% endif %}
+            </div>
+            <!-- Отображение страниц -->
+            <div class="mt-8">
+                <h2 class="text-lg font-semibold mb-4">{% trans "Document Preview" %}</h2>
+                {% if page_data %}
+                    {% for page in page_data %}
+                        <div class="mb-4">
+                            <img src="data:image/png;base64,{{ page.base64 }}" alt="Page Preview" class="w-full h-auto border rounded">
+                            <a href="{{ page.download_url }}" class="text-indigo-500 inline-flex items-center mt-2">
+                                {% trans "Download Page" %}
+                                <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                    <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                            </a>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-500">{% trans "No preview available." %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- JavaScript для изменения статуса и удаления документа -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Изменение статуса
+    const statusSelect = document.querySelector('.change-status');
+    if (statusSelect) {
+        statusSelect.addEventListener('change', function () {
+            const documentId = this.getAttribute('data-document-id');
+            const newStatus = this.value;
+            if (newStatus) {
+                fetch("{% url 'staffs:change_document_status' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    body: `document_id=${documentId}&status=${newStatus}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error: ' + error);
+                });
+            }
+        });
+    }
+
+    // Удаление документа
+    const deleteButton = document.querySelector('.delete-document');
+    if (deleteButton) {
+        deleteButton.addEventListener('click', function () {
+            if (confirm("{% trans 'Are you sure you want to delete this document?' %}")) {
+                const documentId = this.getAttribute('data-document-id');
+                fetch("{% url 'staffs:delete_document' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    body: `document_id=${documentId}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        window.location.href = "{% url 'staffs:dashboard' %}";
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error: ' + error);
+                });
+            }
+        });
+    }
+});
+</script>
+{% endblock content %}

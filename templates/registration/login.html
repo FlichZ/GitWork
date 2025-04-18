@@ -1,0 +1,28 @@
+{% load static i18n tailwind_filters crispy_forms_tags %}
+<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/output.css' %}">
+    <title>{% trans "Login" %}</title>
+</head>
+<body>
+    <div class="max-w-lg mx-auto mt-10">
+        <h1 class="text-center title-font sm:text-4xl text-3xl mb-4 mt-4 font-medium text-gray-500">{% trans "Login" %}</h1>
+        <form action="" method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <button type="submit" class="w-full text-white bg-indigo-500 border-0 py-2 px-6 focus:outline-none hover:bg-indigo-600 rounded text-lg">{% trans "Login" %}</button>
+        </form>
+    </div>
+
+    <style>
+    input, textarea{
+        border:1px solid #e0e0e0;
+    }
+    </style>
+</body>
+</html>

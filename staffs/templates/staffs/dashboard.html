@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block content %}
+<section class="text-gray-600 body-font">
+    <div class="container px-5 py-24 mx-auto">
+        <!-- Заголовок и статистика -->
+        <div class="flex flex-col text-center w-full mb-12">
+            <h1 class="sm:text-3xl text-2xl font-medium title-font mb-4 text-gray-900">{% trans "Dashboard" %}</h1>
+            <p class="lg:w-2/3 mx-auto leading-relaxed text-base">{% trans "Manage your sent and received documents here." %}</p>
+            <!-- Статистика -->
+            <div class="flex justify-center mt-6 space-x-4 flex-wrap">
+                <div class="bg-blue-100 p-4 rounded-lg shadow mb-4">
+                    <h3 class="text-sm font-medium text-blue-700">{% trans "Total Sent" %}</h3>
+                    <p class="text-2xl font-bold text-blue-900">{{ stats.total_sent }}</p>
+                </div>
+                <div class="bg-green-100 p-4 rounded-lg shadow mb-4">
+                    <h3 class="text-sm font-medium text-green-700">{% trans "Total Received" %}</h3>
+                    <p class="text-2xl font-bold text-green-900">{{ stats.total_received }}</p>
+                </div>
+                <div class="bg-gray-100 p-4 rounded-lg shadow mb-4">
+                    <h3 class="text-sm font-medium text-gray-700">{% trans "Drafts" %}</h3>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.total_draft }}</p>
+                </div>
+                <div class="bg-purple-100 p-4 rounded-lg shadow mb-4">
+                    <h3 class="text-sm font-medium text-purple-700">{% trans "Archived" %}</h3>
+                    <p class="text-2xl font-bold text-purple-900">{{ stats.total_archived }}</p>
+                </div>
+                <div class="bg-yellow-100 p-4 rounded-lg shadow mb-4">
+                    <h3 class="text-sm font-medium text-yellow-700">{% trans "Total Documents" %}</h3>
+                    <p class="text-2xl font-bold text-yellow-900">{{ stats.total_documents }}</p>
+                </div>
+                <div class="bg-teal-100 p-4 rounded-lg shadow mb-4">
+                    <h3 class="text-sm font-medium text-teal-700">{% trans "Sent Status" %}</h3>
+                    <p class="text-2xl font-bold text-teal-900">{{ stats.sent_status }}</p>
+                </div>
+                <div class="bg-red-100 p-4 rounded-lg shadow mb-4">
+                    <h3 class="text-sm font-medium text-red-700">{% trans "Received Status" %}</h3>
+                    <p class="text-2xl font-bold text-red-900">{{ stats.received_status }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="flex justify-center mb-4">
+            <form method="get" class="flex flex-wrap space-x-3 items-center">
+                <!-- Скрытый параметр для вкладки -->
+                <input type="hidden" name="tab" value="{{ active_tab }}">
+                <!-- Фильтр по статусу -->
+                <select name="status" class="mr-5 bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200">
+                    <option value="">{% trans "All Statuses" %}</option>
+                    {% for status, label in status_choices %}
+                        <option value="{{ status }}" {% if status == current_status %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <!-- Фильтр по диапазону дат -->
+                <div class="flex space-x-2">
+                    <input type="date" name="start_date" value="{{ current_start_date|default_if_none:'' }}" placeholder="{% trans 'Start Date' %}" class="mr-5 bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200">
+                    <input type="date" name="end_date" value="{{ current_end_date|default_if_none:'' }}" placeholder="{% trans 'End Date' %}" class="mr-5 bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200">
+                </div>
+                <!-- Фильтр по организации -->
+                <select name="org" class="bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200 mr-5">
+                    <option value="">{% trans "All Organizations" %}</option>
+                    {% for org in organizations %}
+                        <option value="{{ org.id }}" {% if org.id|stringformat:"s" == current_org %}selected{% endif %}>{{ org.name }}</option>
+                    {% endfor %}
+                </select>
+                <!-- Сортировка -->
+                <select name="sort_by" class="bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200 mr-5">
+                    <option value="date_created" {% if sort_by == "date_created" %}selected{% endif %}>{% trans "Sort by Date" %}</option>
+                    <option value="status" {% if sort_by == "status" %}selected{% endif %}>{% trans "Sort by Status" %}</option>
+                </select>
+                <select name="sort_order" class="bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200 mr-5">
+                    <option value="desc" {% if sort_order == "desc" %}selected{% endif %}>{% trans "Descending" %}</option>
+                    <option value="asc" {% if sort_order == "asc" %}selected{% endif %}>{% trans "Ascending" %}</option>
+                </select>
+                <button type="submit" class="text-white bg-indigo-500 border-0 py-2 px-4 focus:outline-none hover:bg-indigo-600 rounded text-base">{% trans "Apply Filters" %}</button>
+                <a href="{% url 'staffs:dashboard' %}?tab={{ active_tab }}" class="text-gray-500 hover:underline border-0 py-2 px-4 rounded text-base">{% trans "Reset Filters" %}</a>
+            </form>
+        </div>
+
+        <!-- Кнопки переключения -->
+        <div class="flex justify-center mb-8 space-x-4">
+            <a href="?tab=sent{% if current_status %}&status={{ current_status }}{% endif %}{% if current_start_date %}&start_date={{ current_start_date }}{% endif %}{% if current_end_date %}&end_date={{ current_end_date }}{% endif %}{% if current_org %}&org={{ current_org }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}" class="inline-block p-4 {% if active_tab == 'sent' %}text-indigo-600 border-b-2 border-indigo-600 active{% else %}border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300{% endif %} rounded-t-lgx`x">{% trans "Sent Documents" %}</a>
+            <a href="?tab=received{% if current_status %}&status={{ current_status }}{% endif %}{% if current_start_date %}&start_date={{ current_start_date }}{% endif %}{% if current_end_date %}&end_date={{ current_end_date }}{% endif %}{% if current_org %}&org={{ current_org }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}" class="inline-block p-4 {% if active_tab == 'sent' %}text-indigo-600 border-b-2 border-indigo-600 active{% else %}border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300{% endif %} rounded-t-lg">{% trans "Received Documents" %}</a>
+        </div>
+
+        <!-- Заголовок активной вкладки -->
+        <div class="text-center mb-6">
+            <h2 class="text-xl font-medium text-gray-900">
+                {% if active_tab == 'sent' %}
+                    {% trans "Sent Documents" %}
+                {% else %}
+                    {% trans "Received Documents" %}
+                {% endif %}
+            </h2>
+        </div>
+
+        <!-- Контент активной вкладки -->
+        <div class="mt-6">
+            <div class="flex flex-wrap -m-4">
+                {% for document in documents %}
+                <div class="p-4 md:w-1/3">
+                    <div class="flex rounded-lg h-full bg-gray-100 p-8 flex-col shadow-md hover:shadow-lg transition duration-200">
+                        <div class="flex items-center mb-3">
+                            <div class="w-8 h-8 mr-3 inline-flex items-center justify-center rounded-full bg-indigo-500 text-white flex-shrink-0">
+                                <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-5 h-5" viewBox="0 0 24 24">
+                                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                            </div>
+                            <h2 class="text-gray-900 text-lg title-font font-medium">{{ document.document_name }}</h2>
+                        </div>
+                        <div class="flex-grow">
+                            <p class="leading-relaxed text-base">{{ document.document_description|truncatewords:20 }}</p>
+                            <div class="mt-3">
+                                <span class="inline-block px-3 py-1 text-sm font-semibold text-white rounded-full
+                                    {% if document.status == 'draft' %}bg-gray-500
+                                    {% elif document.status == 'sent' %}bg-blue-500
+                                    {% elif document.status == 'received' %}bg-green-500
+                                    {% elif document.status == 'archived' %}bg-purple-500
+                                    {% endif %}">
+                                    {% trans document.status %}
+                                </span>
+                            </div>
+                            <div class="mt-4 flex justify-between items-center">
+                                <a href="{% url 'staffs:document-detail' document.id %}" class="text-indigo-500 inline-flex items-center mr-5">{% trans "View Details" %}
+                                    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                        <path d="M5 12h14M12 5l7 7-7 7"></path>
+                                    </svg>
+                                </a>
+                                {% if document.document_content %}
+                                <a href="{{ document.document_content.url }}" class="text-indigo-500 inline-flex items-center">{% trans "Download" %}
+                                    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                        <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                    </svg>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="w-full text-center">
+                    <p class="text-gray-500">
+                        {% if active_tab == 'sent' %}
+                            {% trans "No sent documents yet." %}
+                        {% else %}
+                            {% trans "No received documents yet." %}
+                        {% endif %}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Пагинация -->
+            {% if page_obj.has_other_pages %}
+            <div class="flex justify-center mt-8">
+                <nav class="inline-flex rounded-md shadow">
+                    <!-- Предыдущая страница -->
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&tab={{ active_tab }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_start_date %}&start_date={{ current_start_date }}{% endif %}{% if current_end_date %}&end_date={{ current_end_date }}{% endif %}{% if current_org %}&org={{ current_org }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-700 hover:bg-gray-200 mr-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                        </svg>
+                    </a>
+                    {% else %}
+                    <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-400 cursor-not-allowed mr-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                        </svg>
+                    </span>
+                    {% endif %}
+
+                    <!-- Номера страниц -->
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if num == page_obj.number %}
+                    <span class="px-3 py-2 bg-indigo-500 text-white border border-indigo-500 mr-1">{{ num }}</span>
+                    {% else %}
+                    <a href="?page={{ num }}&tab={{ active_tab }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_start_date %}&start_date={{ current_start_date }}{% endif %}{% if current_end_date %}&end_date={{ current_end_date }}{% endif %}{% if current_org %}&org={{ current_org }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}" class="px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 mr-1">{{ num }}</a>
+                    {% endif %}
+                    {% endfor %}
+
+                    <!-- Следующая страница -->
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&tab={{ active_tab }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_start_date %}&start_date={{ current_start_date }}{% endif %}{% if current_end_date %}&end_date={{ current_end_date }}{% endif %}{% if current_org %}&org={{ current_org }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-200">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </a>
+                    {% else %}
+                    <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-400 cursor-not-allowed">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </span>
+                    {% endif %}
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const sentTab = document.getElementById('sent-tab');
+    const receivedTab = document.getElementById('received-tab');
+    const sentContent = document.getElementById('sent-content');
+    const receivedContent = document.getElementById('received-content');
+
+    // Показываем вкладку "Sent Documents" по умолчанию
+    sentTab.classList.add('text-indigo-600', 'border-indigo-600', 'active');
+    sentContent.classList.remove('hidden');
+
+    sentTab.addEventListener('click', function (e) {
+        e.preventDefault();
+        sentTab.classList.add('text-indigo-600', 'border-indigo-600', 'active');
+        sentTab.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+        receivedTab.classList.remove('text-indigo-600', 'border-indigo-600', 'active');
+        receivedTab.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+        sentContent.classList.remove('hidden');
+        receivedContent.classList.add('hidden');
+    });
+
+    receivedTab.addEventListener('click', function (e) {
+        e.preventDefault();
+        receivedTab.classList.add('text-indigo-600', 'border-indigo-600', 'active');
+        receivedTab.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+        sentTab.classList.remove('text-indigo-600', 'border-indigo-600', 'active');
+        sentTab.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+        receivedContent.classList.remove('hidden');
+        sentContent.classList.add('hidden');
+    });
+});
+</script>
+{% endblock content %}
