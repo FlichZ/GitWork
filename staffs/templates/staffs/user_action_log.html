@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block content %}
+<section class="text-gray-600 body-font">
+    <div class="container px-5 py-24 mx-auto">
+        <div class="flex flex-col text-center w-full mb-12">
+            <h1 class="sm:text-3xl text-2xl font-medium title-font mb-4 text-gray-900">{% trans "User Action Log" %}</h1>
+            <p class="lg:w-2/3 mx-auto leading-relaxed text-base">{% trans "View all actions performed on users." %}</p>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="flex justify-center mb-8">
+            <form method="get" class="flex flex-wrap space-x-3 items-center">
+                <input type="text" name="user" placeholder="{% trans 'Filter by user' %}" value="{{ current_user|default_if_none:'' }}" class="bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200 mr-5">
+                <select name="action" class="bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200 mr-5">
+                    <option value="">{% trans "All Actions" %}</option>
+                    {% for action, label in action_choices %}
+                        <option value="{{ action }}" {% if action == current_action %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="text-white bg-indigo-500 border-0 py-2 px-4 focus:outline-none hover:bg-indigo-600 rounded text-base">{% trans "Apply Filters" %}</button>
+                <a href="{% url 'staffs:user_action_log' %}" class="text-gray-500 hover:underline border-0 py-2 px-4 rounded text-base">{% trans "Reset Filters" %}</a>
+            </form>
+        </div>
+
+        <!-- Таблица логов -->
+        <div class="flex justify-center">
+            <div class="overflow-x-auto max-w-5xl">
+                <table class="min-w-full bg-white border border-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="py-2 px-4 border-b">{% trans "Timestamp" %}</th>
+                            <th class="py-2 px-4 border-b">{% trans "User" %}</th>
+                            <th class="py-2 px-4 border-b">{% trans "Action" %}</th>
+                            <th class="py-2 px-4 border-b">{% trans "Details" %}</th>
+                            <th class="py-2 px-4 border-b">{% trans "Performed By" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td class="py-2 px-4 border-b">{{ log.timestamp }}</td>
+                            <td class="py-2 px-4 border-b">{{ log.user.username|default:"Deleted User" }}</td>
+                            <td class="py-2 px-4 border-b">{{ log.get_action_type_display }}</td>
+                            <td class="py-2 px-4 border-b">{{ log.details }}</td>
+                            <td class="py-2 px-4 border-b">{{ log.performed_by.username|default:"Deleted User" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="py-2 px-4 text-center text-gray-500">{% trans "No logs found." %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Пагинация -->
+        {% if page_obj.has_other_pages %}
+        <div class="flex justify-center mt-8">
+            <nav class="inline-flex rounded-md shadow">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if current_user %}&user={{ current_user }}{% endif %}{% if current_action %}&action={{ current_action }}{% endif %}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-700 hover:bg-gray-200 mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                {% else %}
+                <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-400 cursor-not-allowed mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </span>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                <span class="px-3 py-2 bg-indigo-500 text-white border border-indigo-500 mr-1">{{ num }}</span>
+                {% else %}
+                <a href="?page={{ num }}{% if current_user %}&user={{ current_user }}{% endif %}{% if current_action %}&action={{ current_action }}{% endif %}" class="px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 mr-1">{{ num }}</a>
+                {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if current_user %}&user={{ current_user }}{% endif %}{% if current_action %}&action={{ current_action }}{% endif %}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </a>
+                {% else %}
+                <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-400 cursor-not-allowed">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </span>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock content %}

@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block content %}
+<section class="text-gray-600 body-font">
+    <div class="container px-5 py-24 mx-auto">
+        <div class="flex flex-col text-center w-full mb-12">
+            <h1 class="sm:text-3xl text-2xl font-medium title-font mb-4 text-gray-900">{% trans "User Management" %}</h1>
+            <p class="lg:w-2/3 mx-auto leading-relaxed text-base">{% trans "Manage users, their roles, and organizations." %}</p>
+            <!-- Статистика -->
+            <div class="flex justify-center mt-6 space-x-4">
+                <div class="bg-blue-100 p-4 rounded-lg shadow">
+                    <h3 class="text-sm font-medium text-blue-700">{% trans "Total Users" %}</h3>
+                    <p class="text-2xl font-bold text-blue-900">{{ stats.total_users }}</p>
+                </div>
+                <div class="bg-green-100 p-4 rounded-lg shadow">
+                    <h3 class="text-sm font-medium text-green-700">{% trans "Admins" %}</h3>
+                    <p class="text-2xl font-bold text-green-900">{{ stats.admins }}</p>
+                </div>
+                <div class="bg-gray-100 p-4 rounded-lg shadow">
+                    <h3 class="text-sm font-medium text-gray-700">{% trans "Managers" %}</h3>
+                    <p class="text-2xl font-bold text-gray-900">{{ stats.managers }}</p>
+                </div>
+                <div class="bg-purple-100 p-4 rounded-lg shadow">
+                    <h3 class="text-sm font-medium text-purple-700">{% trans "Staff" %}</h3>
+                    <p class="text-2xl font-bold text-purple-900">{{ stats.staff }}</p>
+                </div>
+                <div class="bg-yellow-100 p-4 rounded-lg shadow">
+                    <h3 class="text-sm font-medium text-yellow-700">{% trans "External" %}</h3>
+                    <p class="text-2xl font-bold text-yellow-900">{{ stats.external }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="flex justify-center mb-8">
+            <form method="get" class="flex flex-wrap space-x-3 items-center">
+                <select name="org" class="bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200 mr-5">
+                    <option value="">{% trans "All Organizations" %}</option>
+                    {% for org in organizations %}
+                        <option value="{{ org.id }}" {% if org.id|stringformat:"s" == current_org %}selected{% endif %}>{{ org.name }}</option>
+                    {% endfor %}
+                </select>
+                <select name="role" class="bg-gray-100 border-0 py-2 px-4 rounded text-base focus:outline-none hover:bg-gray-200 mr-5">
+                    <option value="">{% trans "All Roles" %}</option>
+                    {% for role, label in role_choices %}
+                        <option value="{{ role }}" {% if role == current_role %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="text-white bg-indigo-500 border-0 py-2 px-4 focus:outline-none hover:bg-indigo-600 rounded text-base">{% trans "Apply Filters" %}</button>
+                <a href="{% url 'staffs:user_management' %}" class="text-gray-500 hover:underline border-0 py-2 px-4 rounded text-base">{% trans "Reset Filters" %}</a>
+            </form>
+        </div>
+
+        <!-- Таблица пользователей -->
+        <div class="flex justify-center">
+            <div class="overflow-x-auto max-w-5xl">
+                <table class="min-w-full bg-white border border-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="py-2 px-4 border-b">{% trans "Username" %}</th>
+                            <th class="py-2 px-4 border-b">{% trans "Organization" %}</th>
+                            <th class="py-2 px-4 border-b">{% trans "Role" %}</th>
+                            <th class="py-2 px-4 border-b">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td class="py-2 px-4 border-b">{{ user.username }}</td>
+                            <td class="py-2 px-4 border-b">{{ user.organization.name|default:"No Organization" }}</td>
+                            <td class="py-2 px-4 border-b">
+                                <select class="bg-gray-100 border-0 py-1 px-2 rounded text-sm focus:outline-none hover:bg-gray-200 change-role" data-user-id="{{ user.id }}">
+                                    {% for role, label in role_choices %}
+                                        <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="py-2 px-4 border-b">
+                                <button class="text-red-500 hover:underline delete-user" data-user-id="{{ user.id }}">{% trans "Delete" %}</button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="py-2 px-4 text-center text-gray-500">{% trans "No users found." %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Пагинация -->
+        {% if page_obj.has_other_pages %}
+        <div class="flex justify-center mt-8">
+            <nav class="inline-flex rounded-md shadow">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if current_org %}&org={{ current_org }}{% endif %}{% if current_role %}&role={{ current_role }}{% endif %}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-700 hover:bg-gray-200 mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                {% else %}
+                <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-400 cursor-not-allowed mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </span>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                <span class="px-3 py-2 bg-indigo-500 text-white border border-indigo-500 mr-1">{{ num }}</span>
+                {% else %}
+                <a href="?page={{ num }}{% if current_org %}&org={{ current_org }}{% endif %}{% if current_role %}&role={{ current_role }}{% endif %}" class="px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 mr-1">{{ num }}</a>
+                {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if current_org %}&org={{ current_org }}{% endif %}{% if current_role %}&role={{ current_role }}{% endif %}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </a>
+                {% else %}
+                <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-400 cursor-not-allowed">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </span>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- JavaScript для изменения роли и удаления пользователя -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Изменение роли
+    const roleSelects = document.querySelectorAll('.change-role');
+    roleSelects.forEach(select => {
+        select.addEventListener('change', function () {
+            const userId = this.getAttribute('data-user-id');
+            const newRole = this.value;
+            if (newRole) {
+                fetch("{% url 'staffs:change_user_role' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    body: `user_id=${userId}&role=${newRole}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error: ' + error);
+                });
+            }
+        });
+    });
+
+    // Удаление пользователя
+    const deleteButtons = document.querySelectorAll('.delete-user');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function () {
+            if (confirm("{% trans 'Are you sure you want to delete this user?' %}")) {
+                const userId = this.getAttribute('data-user-id');
+                fetch("{% url 'staffs:delete_user' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    body: `user_id=${userId}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error: ' + error);
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock content %}
