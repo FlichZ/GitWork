@@ -1,4 +1,3 @@
-# staffs/forms.py
 from django import forms
 from .models import Document, User, Organization
 from django.contrib.auth.forms import UserCreationForm
@@ -61,11 +60,30 @@ class OrganizationCreationForm(forms.ModelForm):
     class Meta:
         model = Organization
         fields = ['name', 'is_prime_tech']
-        labels = {
-            'name': 'Organization Name',
-            'is_prime_tech': 'Is PrimeTech Organization',
-        }
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-input mt-1 block w-full'}),
-            'is_prime_tech': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'is_prime_tech': forms.CheckboxInput(attrs={'class': 'mt-1'}),
         }
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if Organization.objects.filter(name=name).exists():
+            raise forms.ValidationError("An organization with this name already exists.")
+        return name
+
+
+class OrganizationEditForm(forms.ModelForm):
+    class Meta:
+        model = Organization
+        fields = ['name', 'is_prime_tech']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-input mt-1 block w-full'}),
+            'is_prime_tech': forms.CheckboxInput(attrs={'class': 'mt-1'}),
+        }
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        organization_id = self.instance.id
+        if Organization.objects.filter(name=name).exclude(id=organization_id).exists():
+            raise forms.ValidationError("An organization with this name already exists.")
+        return name

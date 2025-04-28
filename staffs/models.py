@@ -2,6 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -14,6 +15,15 @@ class Organization(models.Model):
         if self.is_prime_tech:
             Organization.objects.filter(is_prime_tech=True).exclude(id=self.id).update(is_prime_tech=False)
         super().save(*args, **kwargs)
+
+        # Автоматическое создание чата для вторичной организации
+        if not self.is_prime_tech and not hasattr(self, 'chat_with_prime_tech'):
+            prime_tech = Organization.objects.filter(is_prime_tech=True).first()
+            if prime_tech:
+                Chat.objects.create(
+                    prime_tech_organization=prime_tech,
+                    secondary_organization=self
+                )
 
     def __str__(self):
         return self.name
@@ -125,7 +135,11 @@ class UserActionLog(models.Model):
         ('update_document_field', 'Update Document Field'),
         ('add_user', 'Add User'),
         ('view_document', 'View Document'),
-        ('add_organization', 'Add Organization'),  # Новый тип действия
+        ('add_organization', 'Add Organization'),
+        ('create_backup', 'Create Backup'),
+        ('download_backup', 'Download Backup'),
+        ('restore_backup', 'Restore Backup'),
+        ('delete_backup', 'Delete Backup'),
     )
 
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='action_logs')
@@ -146,3 +160,50 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.user.username}"
+
+
+class Chat(models.Model):
+    prime_tech_organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='prime_tech_chats')
+    secondary_organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='secondary_chats', null=True, blank=True)
+    is_support = models.BooleanField(default=False)
+    name = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        if self.is_support:
+            return f"Support Chat with {self.prime_tech_organization}"
+        return f"Chat between {self.prime_tech_organization} and {self.secondary_organization or 'Guest'}"
+
+    def save(self, *args, **kwargs):
+        if not self.name:
+            if self.is_support:
+                self.name = f"Support Chat with {self.prime_tech_organization}"
+            else:
+                self.name = f"Chat with {self.secondary_organization or 'Guest'}"
+        super().save(*args, **kwargs)
+
+class ChatMessage(models.Model):
+    chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages', null=True, blank=True)
+    session_key = models.CharField(max_length=40, null=True, blank=True)
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp']
+
+    def __str__(self):
+        sender = self.sender.username if self.sender else f"Guest ({self.session_key})"
+        return f"{sender}: {self.message} ({self.timestamp})"
+
+# # Сигнал для автоматического создания чата при создании организации
+# @receiver(post_save, sender=Organization)
+# def create_organization_chat(sender, instance, created, **kwargs):
+#     if created and not instance.is_prime_tech:
+#         prime_tech_org = Organization.objects.filter(is_prime_tech=True).first()
+#         if prime_tech_org:
+#             Chat.objects.create(
+#                 prime_tech_organization=prime_tech_org,
+#                 secondary_organization=instance,
+#                 name=f"Chat with {instance.name}"
+#             )

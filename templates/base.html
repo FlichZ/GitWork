@@ -8,9 +8,147 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{% static 'css/output.css' %}">
     <title>{% block title %}{% trans "CSIS-Memo" %}{% endblock %}</title>
+    <style>
+        /* Стили для иконки чата */
+        .chat-icon {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 24px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        /* Стили для чат-окна в стиле Telegram */
+        .chat-modal {
+            display: none;
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 600px;
+            height: 450px;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: flex;
+        }
+
+        .chat-sidebar {
+            width: 200px;
+            border-right: 1px solid #ccc;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+        }
+
+        .chat-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-item:hover {
+            background-color: #e9ecef;
+        }
+
+        .chat-item.active {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .chat-item .chat-name {
+            font-weight: bold;
+        }
+
+        .chat-item .last-message {
+            font-size: 0.9em;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-item.active .last-message {
+            color: #ddd;
+        }
+
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px;
+            border-radius: 0 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-body {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .chat-footer {
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-footer input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .chat-footer button {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .chat-footer button:hover {
+            background-color: #0056b3;
+        }
+
+        .chat-message {
+            margin-bottom: 10px;
+        }
+
+        .chat-message .sender {
+            font-weight: bold;
+        }
+
+        .chat-message .timestamp {
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
 </head>
 <body>
-   <header class="text-gray-600 body-font min-h-16 z-1">
+<header class="text-gray-600 body-font min-h-16 z-1">
   <div class="container mx-auto flex p-5 flex-col md:flex-row md:flex-nowrap items-center">
     <a class="flex title-font font-medium items-center text-gray-900 mb-4 md:mb-0">
       <span class="ml-3 text-xl">{% trans "Memo Tracker" %}</span>
@@ -53,6 +191,14 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5l-9 2 9 18 9-18-9-2zm0 0v8"></path>
                   </svg>
               </a>
+              {% if request.user.organization.is_prime_tech  %}
+              <a href="{% url 'staffs:document_log' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
+                  {% trans "Documents log" %}
+                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5l-9 2 9 18 9-18-9-2zm0 0v8"></path>
+                  </svg>
+              </a>
+              {% endif %}
           </div>
       </div>
 
@@ -70,7 +216,7 @@
       </a>
 
       <!-- Выпадающее меню "Logs" -->
-      {% if request.user.is_authenticated %}
+      {% if request.user.organization.is_prime_tech  %}
       <div class="relative mr-5 dropdown">
           <button class="flex items-center hover:text-gray-900 focus:outline-none dropdown-toggle">
               {% trans "Logs" %}
@@ -78,7 +224,6 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
               </svg>
           </button>
-
           <div class="absolute dropdown-menu bg-white shadow-lg rounded-md mt-2 z-50 w-48" hidden>
               {% if request.user.organization.is_prime_tech %}
               <a href="{% url 'staffs:status_log_console' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
@@ -96,33 +241,35 @@
                   </svg>
               </a>
               {% endif %}
-
-
-              {% if request.user.is_authenticated and request.user.role == 'admin' %}
-              <a href="{% url 'staffs:user_management' %}" class="mr-5 hover:text-gray-900 flex items-center">
-                  {% trans "User Management" %}
-                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M8.5 3a4 4 0 100 8 4 4 0 000-8z"></path>
-                  </svg>
-              </a>
-              {% endif %}
           </div>
       </div>
       {% endif %}
-        {% if request.user.organization.is_prime_tech %}
-              <a href="{% url 'staffs:document_log' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
-                  {% trans "Document Log" %}
-                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-6 4h6m-6 4h6"></path>
-                  </svg>
-              </a>
-        {% endif %}
 
+      {% if request.user.is_authenticated and request.user.role == 'admin' %}
+      <a href="{% url 'staffs:user_management' %}" class="mr-5 hover:text-gray-900 flex items-center">
+          {% trans "User Management" %}
+          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M8.5 3a4 4 0 100 8 4 4 0 000-8z"></path>
+          </svg>
+      </a>
+      {% endif %}
+
+      {% if user.role == 'admin' %}
+        <div class="mt-4 text-center">
+            <a href="{% url 'staffs:backup_management' %}" class="text-indigo-500 inline-flex items-center">
+                {% trans "Go to Backup Management" %}
+                <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                    <path d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+{% endif %}
     </nav>
+
     <!-- Переключатель языка в шапке -->
     <form action="{% url 'set_language' %}" method="post" class="inline-flex items-center">
         {% csrf_token %}
-        <select name="language" onchange="this.form.submit()" class="mr-3 inline-flex bg-gray-100 border-3 py-1 px-3 rounded text-base focus:outline-none hover:bg-gray-200">
+        <select name="language" onchange="this.form.submit()" class="mr-3 inline-flex bg-gray-100 border-0 py-1 px-3 rounded text-base focus:outline-none hover:bg-gray-200">
             {% get_current_language as LANGUAGE_CODE %}
             {% get_available_languages as LANGUAGES %}
             {% for lang in LANGUAGES %}
@@ -184,91 +331,270 @@
     {% endif %}
 </div>
 
-    {% block content %}
-    <div class="container mx-auto mt-8 px-4">
-        <div class="flex flex-wrap -mx-4">
-            <!-- Отправить документ -->
-            <div class="w-full md:w-1/2 px-4 mb-8">
-                <div class="text-center">
-                    <img src="{% static 'images/send-document.png' %}" alt="Send Document" class="mx-auto mb-4">
-                    <h2 class="text-xl font-semibold mb-2">{% trans "Send Document" %}</h2>
-                    <p class="text-gray-600 mb-4">
-                        {% trans "Register documents sent by users within and outside CSIS. When sending documents to users within CSIS, it is recommended to register the document in the system." %}
-                    </p>
-                    <a href="{% url 'staffs:send-document' %}" class="inline-block bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600">
-                        {% trans "Send" %}
-                    </a>
-                </div>
+{% block content %}
+<div class="container mx-auto mt-8 px-4">
+    <div class="flex flex-wrap -mx-4">
+        <!-- Отправить документ -->
+        <div class="w-full md:w-1/2 px-4 mb-8">
+            <div class="text-center">
+                <img src="{% static 'images/send-document.png' %}" alt="Send Document" class="mx-auto mb-4">
+                <h2 class="text-xl font-semibold mb-2">{% trans "Send Document" %}</h2>
+                <p class="text-gray-600 mb-4">
+                    {% trans "Register documents sent by users within and outside CSIS. When sending documents to users within CSIS, it is recommended to register the document in the system." %}
+                </p>
+                <a href="{% url 'staffs:send-document' %}" class="inline-block bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600">
+                    {% trans "Send" %}
+                </a>
             </div>
+        </div>
 
-            <!-- Получить документ -->
-            <div class="w-full md:w-1/2 px-4 mb-8">
-                <div class="text-center">
-                    <img src="{% static 'images/receive-document.png' %}" alt="Receive Document" class="mx-auto mb-4">
-                    <h2 class="text-xl font-semibold mb-2">{% trans "Receive Document" %}</h2>
-                    <p class="text-gray-600 mb-4">
-                        {% trans "Register documents received from sources and users outside CSIS. When receiving documents from users within CSIS, it is recommended that the document be sent as completed." %}
-                    </p>
-                    <a href="{% url 'staffs:receive-document' %}" class="inline-block bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600">
-                        {% trans "Receive" %}
-                    </a>
-                </div>
+        <!-- Получить документ -->
+        <div class="w-full md:w-1/2 px-4 mb-8">
+            <div class="text-center">
+                <img src="{% static 'images/receive-document.png' %}" alt="Receive Document" class="mx-auto mb-4">
+                <h2 class="text-xl font-semibold mb-2">{% trans "Receive Document" %}</h2>
+                <p class="text-gray-600 mb-4">
+                    {% trans "Register documents received from sources and users outside CSIS. When receiving documents from users within CSIS, it is recommended that the document be sent as completed." %}
+                </p>
+                <a href="{% url 'staffs:receive-document' %}" class="inline-block bg-purple-500 text-white py-2 px-4 rounded hover:bg-purple-600">
+                    {% trans "Receive" %}
+                </a>
             </div>
         </div>
     </div>
-    {% endblock content %}
+</div>
+{% endblock content %}
 
-<!-- JavaScript для автоматического скрытия уведомлений и управления выпадающими списками -->
+
+{% if request.user.is_authenticated %}
+<!-- Иконка чата -->
+<div class="chat-icon" onclick="toggleChat()">💬</div>
+
+<!-- Окно чата в стиле Telegram -->
+<div class="chat-modal" style="display: none" id="chatModal">
+    <div class="chat-sidebar" id="chatSidebar">
+        <!-- Список чатов будет загружен через JavaScript -->
+    </div>
+    <div class="chat-main">
+        <div class="chat-header" id="chatHeader">
+            <span id="chatTitle">{% trans "Select a chat" %}</span>
+            <button onclick="toggleChat()" style="color: white;">✕</button>
+        </div>
+        <div class="chat-body" id="chatBody">
+            <!-- Сообщения будут загружены через JavaScript -->
+        </div>
+        <div class="chat-footer">
+            <input type="text" id="chatInput" placeholder="{% trans 'Type a message...' %}" onkeypress="if(event.keyCode==13) sendMessage()">
+            <button onclick="sendMessage()">{% trans "Send" %}</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+<script src="{% static 'js/dropdown.js' %}"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    // Автоматическое скрытие уведомлений
-    const messages = document.querySelectorAll('.alert');
-    messages.forEach(message => {
-        setTimeout(() => {
-            message.style.transition = 'opacity 0.3s';
-            message.style.opacity = '0';
-            setTimeout(() => message.remove(), 300);
-        }, 5000);
-    });
+    let currentChatId = null;
+    let ws = null;
 
-    // Управление выпадающими списками
-    const dropdowns = document.querySelectorAll('.dropdown');
-    dropdowns.forEach(dropdown => {
-        const toggle = dropdown.querySelector('.dropdown-toggle');
-        const menu = dropdown.querySelector('.dropdown-menu');
+    function toggleChat() {
+        console.log('toggleChat called');
+        const chatModal = document.getElementById('chatModal');
+        chatModal.style.display = chatModal.style.display === 'flex' ? 'none' : 'flex';
+        if (chatModal.style.display === 'flex') {
+            loadChats();
+        } else {
+            disconnectWebSocket();
+        }
+    }
 
-        // Убедитесь, что меню изначально скрыто
-        menu.setAttribute('hidden', '');
+    function loadChats() {
+        const isAuthenticated = {{ request.user.is_authenticated|lower }};
+        const sidebar = document.getElementById('chatSidebar');
+        sidebar.innerHTML = '';
 
-        // Открытие/закрытие при клике
-        toggle.addEventListener('click', function (e) {
-            e.preventDefault();
-            if (menu.hasAttribute('hidden')) {
-                menu.removeAttribute('hidden');
-            } else {
-                menu.setAttribute('hidden', '');
-            }
-        });
+        if (isAuthenticated) {
+            fetch('{% url "staffs:get_chats" %}')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Chats data:', data);
+                    if (data.status === 'success') {
+                        if (data.chats.length === 0) {
+                            sidebar.innerHTML = '<div class="p-4 text-gray-600">{% trans "No chats available." %}</div>';
+                        } else {
+                            data.chats.forEach(chat => {
+                                const chatItem = document.createElement('div');
+                                chatItem.className = 'chat-item';
+                                chatItem.setAttribute('data-chat-id', chat.id);
+                                chatItem.innerHTML = `
+                                    <span class="chat-name">${chat.name}</span>
+                                    <span class="last-message">${chat.last_message || 'No messages'}</span>
+                                `;
+                                chatItem.onclick = () => selectChat(chat.id, chat.name);
+                                sidebar.appendChild(chatItem);
+                            });
+                        }
+                    } else {
+                        console.error('Error loading chats:', data.message);
+                        sidebar.innerHTML = '<div class="p-4 text-red-600">Error: ' + data.message + '</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    sidebar.innerHTML = '<div class="p-4 text-red-600">Error loading chats</div>';
+                });
+        } else {
+            fetch('{% url "staffs:get_support_chat" %}')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Support chat data:', data);
+                    if (data.status === 'success') {
+                        const chat = data.chat;
+                        const chatItem = document.createElement('div');
+                        chatItem.className = 'chat-item';
+                        chatItem.setAttribute('data-chat-id', chat.id);
+                        chatItem.innerHTML = `
+                            <span class="chat-name">${chat.name}</span>
+                            <span class="last-message">${chat.last_message || 'No messages'}</span>
+                        `;
+                        chatItem.onclick = () => selectChat(chat.id, chat.name, true);
+                        sidebar.appendChild(chatItem);
+                    } else {
+                        console.error('Error loading support chat:', data.message);
+                        sidebar.innerHTML = '<div class="p-4 text-red-600">Error: ' + data.message + '</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    sidebar.innerHTML = '<div class="p-4 text-red-600">Error loading support chat</div>';
+                });
+        }
+    }
 
-        // Закрытие при клике вне меню
-        document.addEventListener('click', function (e) {
-            if (!dropdown.contains(e.target)) {
-                menu.setAttribute('hidden', '');
-            }
-        });
+    function selectChat(chatId, chatName, isSupport = false) {
+        console.log('selectChat called: chatId=', chatId, 'chatName=', chatName, 'isSupport=', isSupport);
+        document.getElementById('chatTitle').textContent = chatName;
 
-        // Добавляем обработчики наведения только после полной загрузки
-        window.addEventListener('load', function () {
-            dropdown.addEventListener('mouseenter', function () {
-                menu.removeAttribute('hidden');
+        const chatItems = document.getElementsByClassName('chat-item');
+        for (let item of chatItems) {
+            item.classList.remove('active');
+        }
+        const selectedItem = document.querySelector(`.chat-item[data-chat-id="${chatId}"]`);
+        if (selectedItem) {
+            selectedItem.classList.add('active');
+        }
+
+        disconnectWebSocket();
+
+        const url = isSupport ? '{% url "staffs:support_chat_history" %}' : '{% url "staffs:chat_history" chat_id=999 %}'.replace('999', chatId);
+        console.log('Fetching messages from:', url);
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Messages data:', data);
+                const chatBody = document.getElementById('chatBody');
+                chatBody.innerHTML = '';
+                if (data.status === 'success') {
+                    if (data.messages.length === 0) {
+                        chatBody.innerHTML = '<div class="p-4 text-gray-600">{% trans "No messages yet." %}</div>';
+                    } else {
+                        data.messages.forEach(msg => {
+                            const messageDiv = document.createElement('div');
+                            messageDiv.className = 'chat-message';
+                            messageDiv.innerHTML = `
+                                <span class="sender">${msg.sender}:</span> ${msg.message}
+                                <div class="timestamp">${msg.timestamp}</div>
+                            `;
+                            chatBody.appendChild(messageDiv);
+                        });
+                    }
+                    chatBody.scrollTop = chatBody.scrollHeight;
+                } else {
+                    console.error('Error loading messages:', data.message);
+                    chatBody.innerHTML = '<div class="p-4 text-red-600">Error: ' + data.message + '</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                const chatBody = document.getElementById('chatBody');
+                chatBody.innerHTML = '<div class="p-4 text-red-600">Error loading messages: ' + error.message + '</div>';
             });
 
-            dropdown.addEventListener('mouseleave', function () {
-                menu.setAttribute('hidden', '');
-            });
-        });
+        currentChatId = chatId;
+        const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsPath = isSupport ? `${wsScheme}://${window.location.host}/ws/chat/support/` : `${wsScheme}://${window.location.host}/ws/chat/${chatId}/`;
+        console.log('Connecting to WebSocket:', wsPath);
+        ws = new WebSocket(wsPath);
+
+        ws.onopen = function() {
+            console.log('WebSocket connection opened for chatId:', chatId);
+        };
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('WebSocket message received:', data);
+            const chatBody = document.getElementById('chatBody');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message';
+            messageDiv.innerHTML = `
+                <span class="sender">${data.sender}:</span> ${data.message}
+                <div class="timestamp">${data.timestamp}</div>
+            `;
+            chatBody.appendChild(messageDiv);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        };
+
+        ws.onclose = function(event) {
+            console.log('WebSocket connection closed:', event);
+            const chatBody = document.getElementById('chatBody');
+            chatBody.innerHTML += '<div class="p-4 text-red-600">WebSocket connection closed</div>';
+        };
+
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            const chatBody = document.getElementById('chatBody');
+            chatBody.innerHTML += '<div class="p-4 text-red-600">WebSocket error occurred</div>';
+        };
+    }
+
+    function disconnectWebSocket() {
+        if (ws) {
+            ws.close();
+            ws = null;
+        }
+        currentChatId = null;
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        console.log('sendMessage: ws=', ws, 'readyState=', ws?.readyState, 'message=', message);
+        if (message && ws && ws.readyState === WebSocket.OPEN) {
+            console.log('Sending message:', message);
+            ws.send(JSON.stringify({ message: message }));
+            input.value = '';
+        } else {
+            console.error('Cannot send message: WebSocket is not connected or message is empty');
+            const chatBody = document.getElementById('chatBody');
+            {#chatBody.innerHTML += '<div class="p-4 text-red-600">Cannot send message: WebSocket is not connected</div>';#}
+        }
+    }
+
+    document.getElementById('chatInput').addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            sendMessage();
+        }
     });
-});
 </script>
 </body>
 </html>

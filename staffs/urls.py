@@ -2,10 +2,7 @@
 import tempfile
 from django.urls import path
 from django.views.static import serve
-from .views import send_document, receive_document, dashboard, add_user, document_detail, download_page, document_log, \
-    update_document_field, change_document_status, status_log_console, user_action_log, user_management, \
-    change_user_role, delete_user, notifications, delete_document, add_organization
-
+from .views import *
 app_name = "staffs"
 
 urlpatterns = [
@@ -23,11 +20,20 @@ urlpatterns = [
     path('change-user-role/', change_user_role, name='change_user_role'),
     path('delete-user/', delete_user, name='delete_user'),
     path('user-action-log/', user_action_log, name='user_action_log'),
-
     path('notifications/', notifications, name='notifications'),
-
     path('delete-document/', delete_document, name='delete_document'),
-
     path('add-organization/', add_organization, name='add-organization'),  # Новый URL
-
+    path('get-organization/', get_organization, name='get_organization'),
+    path('edit-organization/', edit_organization, name='edit_organization'),
+    path('delete-organization/', delete_organization, name='delete_organization'),
+    path('get-org-users/', get_org_users, name='get_org_users'),
+    path('get-chats/', get_chats, name='get_chats'),
+    path('get-support-chat/', get_support_chat, name='get_support_chat'),
+    path('chat-history/<int:chat_id>/', chat_history, name='chat_history'),
+    path('support-chat-history/', support_chat_history, name='support_chat_history'),
+    path('backup/', backup_management, name='backup_management'),
+    path('backup/create/', create_backup, name='create_backup'),
+    path('backup/download/<str:filename>/', download_backup, name='download_backup'),
+    path('backup/restore/', restore_backup, name='restore_backup'),
+    path('backup/delete/', delete_backup, name='delete_backup'),
 ]

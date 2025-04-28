@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 
 from pathlib import Path
 import os
+
+from django.conf.global_settings import MEDIA_ROOT
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -34,6 +36,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 INSTALLED_APPS = [
+    'channels',  # Добавляем Channels
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,6 +47,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_tailwind',
     'django_extensions',
+
 ]
 
 MIDDLEWARE = [
@@ -74,6 +78,19 @@ TEMPLATES = [
         },
     },
 ]
+
+# Настройка ASGI для Channels
+ASGI_APPLICATION = 'document_tracker.asgi.application'
+
+# Настройка брокера сообщений (Redis)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],  # Укажи адрес своего Redis-сервера
+        },
+    },
+}
 
 WSGI_APPLICATION = 'document_tracker.wsgi.application'
 
@@ -133,6 +150,8 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 LOGOUT_REDIRECT_URL = '/'
 
 # Default primary key field type
@@ -146,10 +165,13 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
 
 LOGIN_REDIRECT_URL = "/select_send_or_receive"
 
-
 LOGIN_URL = '/login/'
 
 GRAPH_MODELS = {
   'app_labels': ['document_tracker', 'staffs'],
 }
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+BACKUP_DIR = os.path.join(MEDIA_ROOT, 'backups')

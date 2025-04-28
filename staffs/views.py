@@ -1,13 +1,17 @@
 import csv
+import sqlite3
 from datetime import datetime
+import json
 
+from django.conf import settings
+from django.db import connections
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
-from .models import Document, Organization, User, UserActionLog, Notification
-from .forms import SendDocumentForm, CustomUserCreationForm, OrganizationCreationForm
+from .models import Document, Organization, User, UserActionLog, Notification, ChatMessage, Chat
+from .forms import SendDocumentForm, CustomUserCreationForm, OrganizationCreationForm, OrganizationEditForm
 from django.contrib import messages as django_messages
 from django.http import FileResponse, HttpResponse, JsonResponse
 import os
@@ -25,7 +29,7 @@ import subprocess
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side
 from io import BytesIO
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 
@@ -52,7 +56,7 @@ def document_detail(request, document_id):
         )
 
     if not has_access:
-        django_messages.error(request, _("You do not have permission to view this document."))
+        django_messages.error(request, ("You do not have permission to view this document."))
         return redirect('staffs:dashboard')
 
     # Логирование просмотра документа
@@ -75,7 +79,7 @@ def document_detail(request, document_id):
 
         if not os.path.exists(file_path):
             logger.error(f"File not found on server: {file_path}")
-            django_messages.error(request, _("File not found on server: ") + file_path)
+            django_messages.error(request, ("File not found on server: ") + file_path)
             page_images_base64 = None
         else:
             content_type, _ = guess_type(file_path)
@@ -94,7 +98,7 @@ def document_detail(request, document_id):
                     text = '\n'.join([p.text for p in doc.paragraphs if p.text.strip()])
                     if not text:
                         logger.warning(f"DOCX file is empty: {file_path}")
-                        django_messages.warning(request, _("The DOCX file is empty or contains no readable text."))
+                        django_messages.warning(request, ("The DOCX file is empty or contains no readable text."))
                     else:
                         images = text_to_images(text, width=800, height=1200)
                         for img in images:
@@ -130,7 +134,7 @@ def document_detail(request, document_id):
                 django_messages.error(request, _("Error generating preview: ") + str(e))
     else:
         logger.warning(f"No file attached to document ID {document_id}")
-        django_messages.warning(request, _("No file attached to this document."))
+        django_messages.warning(request, ("No file attached to this document."))
         page_images_base64 = None
 
     if page_images_base64:
@@ -165,7 +169,7 @@ def download_page(request, document_id, page_index):
         )
 
     if not has_access:
-        django_messages.error(request, _("You do not have permission to download this page."))
+        django_messages.error(request, ("You do not have permission to download this page."))
         return redirect('staffs:document-detail', document_id=document_id)
 
     file_path = document.document_content.path
@@ -439,8 +443,6 @@ def receive_document(request):
     }
     return render(request, 'staffs/receive.html', context)
 
-
-# views.py
 
 @login_required
 def add_user(request):
@@ -789,7 +791,11 @@ def user_management(request):
         django_messages.error(request, _("Only admins can access this page."))
         return redirect('staffs:dashboard')
 
+    # Определяем активную вкладку
+    active_tab = request.GET.get('tab', 'users')
+
     users = User.objects.all()
+    organizations = Organization.objects.all()
 
     org_filter = request.GET.get('org', None)
     role_filter = request.GET.get('role', None)
@@ -818,7 +824,6 @@ def user_management(request):
         'external': User.objects.filter(role='external').count(),
     }
 
-    organizations = Organization.objects.all()
     role_choices = User.ROLES
 
     context = {
@@ -829,6 +834,7 @@ def user_management(request):
         'current_org': org_filter,
         'current_role': role_filter,
         'stats': stats,
+        'active_tab': active_tab,
     }
     return render(request, 'staffs/user_management.html', context)
 
@@ -931,6 +937,7 @@ def user_action_log(request):
     }
     return render(request, 'staffs/user_action_log.html', context)
 
+
 @login_required
 def notifications(request):
     notifications = request.user.notifications.all().order_by('-created_at')
@@ -963,6 +970,7 @@ def notifications(request):
 def is_prime_tech(user):
     return user.organization.is_prime_tech if user.is_authenticated and user.organization else False
 
+
 @login_required
 @user_passes_test(is_prime_tech)
 def delete_document(request):
@@ -975,12 +983,20 @@ def delete_document(request):
             if not request.user.organization.is_prime_tech:
                 return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
 
+            # Логирование действия удаления
+            UserActionLog.objects.create(
+                user=request.user,
+                action_type='delete_document',
+                details=f"Deleted document '{document.document_name}' (ID: {document.id})",
+                performed_by=request.user
+            )
+
             # Удаление файла с диска, если он существует
-            if document.document_content:
-                if os.path.isfile(document.document_content.path):
-                    os.remove(document.document_content.path)
-                document.document_content = None  # Очищаем поле
-                document.save()
+            if document.document_content and os.path.isfile(document.document_content.path):
+                os.remove(document.document_content.path)
+
+            # Удаление записи документа из базы данных
+            document.delete()
 
             return JsonResponse({'status': 'success', 'message': 'Document deleted successfully'})
         except Document.DoesNotExist:
@@ -1004,14 +1020,474 @@ def add_organization(request):
             # Логирование добавления организации
             UserActionLog.objects.create(
                 user=request.user,
-                action_type='add_organization',  # Предполагается, что этот тип действия добавлен в ACTION_TYPES
+                action_type='add_organization',
                 details=f"Added new organization '{organization.name}'",
                 performed_by=request.user
             )
 
             django_messages.success(request, _("Organization added successfully!"))
-            return redirect('staffs:dashboard')
+            return redirect('staffs:user_management', tab='organizations')
     else:
         form = OrganizationCreationForm()
 
     return render(request, 'staffs/add_organization.html', {'form': form})
+
+
+@require_GET
+@login_required
+def get_organization(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': _("Only admins can access this data.")}, status=403)
+
+    org_id = request.GET.get('org_id')
+    try:
+        organization = Organization.objects.get(id=org_id)
+        return JsonResponse({
+            'status': 'success',
+            'organization': {
+                'id': organization.id,
+                'name': organization.name,
+                'is_prime_tech': organization.is_prime_tech,
+            }
+        })
+    except Organization.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': _("Organization not found.")}, status=404)
+
+
+@require_POST
+@login_required
+def edit_organization(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': _("Only admins can edit organizations.")}, status=403)
+
+    org_id = request.POST.get('org_id')
+    try:
+        organization = Organization.objects.get(id=org_id)
+        form = OrganizationEditForm(request.POST, instance=organization)
+        if form.is_valid():
+            form.save()
+            UserActionLog.objects.create(
+                user=request.user,
+                action_type='edit_organization',
+                details=f"Edited organization '{organization.name}'",
+                performed_by=request.user
+            )
+            return JsonResponse({'status': 'success', 'message': _("Organization updated successfully.")})
+        else:
+            errors = form.errors.as_json()
+            return JsonResponse({'status': 'error', 'message': json.loads(errors)}, status=400)
+    except Organization.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': _("Organization not found.")}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@require_POST
+@login_required
+def delete_organization(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': _("Only admins can delete organizations.")}, status=403)
+
+    org_id = request.POST.get('org_id')
+    try:
+        organization = Organization.objects.get(id=org_id)
+        if organization.users.exists():
+            return JsonResponse({'status': 'error', 'message': _("Cannot delete organization with associated users.")}, status=400)
+        if organization.is_prime_tech:
+            return JsonResponse({'status': 'error', 'message': _("Cannot delete PrimeTech organization.")}, status=400)
+        # Логирование перед удалением
+        UserActionLog.objects.create(
+            user=request.user,
+            action_type='delete_organization',
+            details=f"Deleted organization '{organization.name}'",
+            performed_by=request.user
+        )
+        organization.delete()
+        return JsonResponse({'status': 'success', 'message': _("Organization deleted successfully.")})
+    except Organization.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': _("Organization not found.")}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@require_GET
+@login_required
+def get_org_users(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': _("Only admins can access this data.")}, status=403)
+
+    org_id = request.GET.get('org_id')
+    try:
+        organization = Organization.objects.get(id=org_id)
+        users = organization.users.all()
+        users_data = [{
+            'id': user.id,
+            'username': user.username,
+            'role': dict(User.ROLES).get(user.role, user.role),
+        } for user in users]
+        return JsonResponse({
+            'status': 'success',
+            'users': users_data
+        })
+    except Organization.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': _("Organization not found.")}, status=404)
+
+
+@login_required
+def get_chats(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'User not authenticated'}, status=401)
+
+    user_org = request.user.organization
+    if user_org.is_prime_tech:
+
+        chats = Chat.objects.filter(prime_tech_organization=user_org, is_support=False)
+    else:
+        chats = Chat.objects.filter(secondary_organization=user_org, is_support=False)
+
+    chat_list = [{
+        'id': chat.id,
+        'name': chat.secondary_organization.name if chat.secondary_organization else chat.name,
+        'last_message': chat.messages.last().message if chat.messages.exists() else 'No messages'
+    } for chat in chats]
+    return JsonResponse({'status': 'success', 'chats': chat_list})
+
+
+@require_GET
+def get_support_chat(request):
+    try:
+        chat = Chat.objects.get(is_support=True)
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.save()
+            session_key = request.session.session_key
+        return JsonResponse({
+            'status': 'success',
+            'chat': {
+                'id': chat.id,
+                'name': chat.name,
+                'last_message': chat.messages.last().message if chat.messages.exists() else None
+            }
+        })
+    except Chat.DoesNotExist:
+        prime_tech_org = Organization.objects.filter(is_prime_tech=True).first()
+        if prime_tech_org:
+            chat = Chat.objects.create(
+                prime_tech_organization=prime_tech_org,
+                is_support=True,
+                name="Support Chat"
+            )
+            return JsonResponse({
+                'status': 'success',
+                'chat': {
+                    'id': chat.id,
+                    'name': chat.name,
+                    'last_message': None
+                }
+            })
+        return JsonResponse({'status': 'error', 'message': _("Support chat not found.")}, status=404)
+
+
+@login_required
+def chat_history(request, chat_id):
+    user = request.user
+    organization = user.organization
+
+    try:
+        chat = Chat.objects.get(id=chat_id, is_support=False)
+        if not organization:
+            return JsonResponse({'status': 'error', 'message': _("User has no organization.")}, status=403)
+        if organization.is_prime_tech:
+            if chat.prime_tech_organization != organization:
+                return JsonResponse({'status': 'error', 'message': _("You do not have access to this chat.")}, status=403)
+        else:
+            if chat.secondary_organization != organization:
+                return JsonResponse({'status': 'error', 'message': _("You do not have access to this chat.")}, status=403)
+
+        messages = chat.messages.all()
+        messages_data = [{
+            'sender': msg.sender.username if msg.sender else "Guest",
+            'message': msg.message,
+            'timestamp': msg.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        } for msg in messages]
+
+        return JsonResponse({'status': 'success', 'messages': messages_data})
+
+    except Chat.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': _("Chat not found.")}, status=404)
+
+
+@require_GET
+def support_chat_history(request):
+    try:
+        chat = Chat.objects.get(is_support=True)
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.save()
+            session_key = request.session.session_key
+
+        if request.user.is_authenticated and request.user.organization.is_prime_tech:
+            messages = chat.messages.all()
+        else:
+            messages = chat.messages.filter(session_key=session_key) | chat.messages.filter(sender__organization__is_prime_tech=True)
+
+        messages_data = [{
+            'sender': msg.sender.username if msg.sender else "Guest",
+            'message': msg.message,
+            'timestamp': msg.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        } for msg in messages.order_by('timestamp')]
+
+        return JsonResponse({
+            'status': 'success',
+            'messages': messages_data
+        })
+    except Chat.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': _("Support chat not found.")}, status=404)
+
+
+
+@login_required
+def backup_management(request):
+    if request.user.role != 'admin':
+        django_messages.error(request, _("Only admins can access this page."))
+        return redirect('staffs:dashboard')
+
+    # Путь к папке для резервных копий
+    backup_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+
+    # Получаем список резервных копий
+    backups = []
+    for filename in os.listdir(backup_dir):
+        file_path = os.path.join(backup_dir, filename)
+        if os.path.isfile(file_path) and filename.endswith('.sql'):
+            created_at = datetime.fromtimestamp(os.path.getctime(file_path))
+            size = os.path.getsize(file_path) / (1024 * 1024)  # Размер в MB
+            backups.append({
+                'filename': filename,
+                'created_at': created_at,
+                'size': size,
+            })
+
+    # Сортировка по дате создания (от новых к старым)
+    backups.sort(key=lambda x: x['created_at'], reverse=True)
+
+    # Статистика
+    stats = {
+        'total_backups': len(backups),
+        'last_backup': backups[0]['created_at'].strftime('%Y-%m-%d %H:%M:%S') if backups else None,
+        'storage_used': sum(b['size'] for b in backups),
+    }
+
+    # Пагинация
+    paginator = Paginator(backups, 9)  # 9 резервных копий на страницу
+    page_number = request.GET.get('page')
+    try:
+        page_obj = paginator.page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+
+    context = {
+        'backups': page_obj,
+        'page_obj': page_obj,
+        'stats': stats,
+    }
+    return render(request, 'staffs/backup.html', context)
+
+@login_required
+def create_backup(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': _("Only admins can create backups.")}, status=403)
+    if request.method == 'POST':
+        try:
+            db_path = settings.DATABASES['default']['NAME']
+            print(f"Database path: {db_path}")  # Отладка
+            if not os.path.exists(db_path):
+                return JsonResponse({'status': 'error', 'message': _("Database file not found.")}, status=404)
+            backup_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
+            print(f"Backup dir: {backup_dir}")  # Отладка
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_filename = f"backup_{timestamp}.sql"
+            backup_path = os.path.join(backup_dir, backup_filename)
+            print(f"Creating SQL backup: {backup_path}")  # Отладка
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                process = subprocess.run(['sqlite3', db_path, '.dump'], stdout=subprocess.PIPE, text=True, check=True)
+                f.write(process.stdout)
+            print(f"Backup created successfully: {backup_filename}")  # Отладка
+            UserActionLog.objects.create(
+                user=request.user,
+                action_type='create_backup',
+                details=f"Created SQL backup '{backup_filename}'",
+                performed_by=request.user
+            )
+            return JsonResponse({'status': 'success', 'message': _("Backup created successfully.")})
+        except subprocess.CalledProcessError as e:
+            print(f"Subprocess error: {str(e)}")  # Отладка
+            return JsonResponse({'status': 'error', 'message': f"Failed to create SQL dump: {str(e)}"}, status=500)
+        except Exception as e:
+            print(f"General error: {str(e)}")  # Отладка
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    return JsonResponse({'status': 'error', 'message': _("Invalid request method.")}, status=400)
+
+@login_required
+def download_backup(request, filename):
+    if request.user.role != 'admin':
+        django_messages.error(request, _("Only admins can download backups."))
+        return redirect('staffs:dashboard')
+
+    backup_path = os.path.join(settings.MEDIA_ROOT, 'backups', filename)
+    if not os.path.exists(backup_path):
+        django_messages.error(request, _("Backup file not found."))
+        return redirect('staffs:backup_management')
+
+    # Логирование
+    UserActionLog.objects.create(
+        user=request.user,
+        action_type='download_backup',
+        details=f"Downloaded SQL backup '{filename}'",
+        performed_by=request.user
+    )
+
+    response = FileResponse(open(backup_path, 'rb'), as_attachment=True, filename=filename)
+    response['Content-Type'] = 'application/sql'
+    return response
+
+@login_required
+def restore_backup(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': _("Only admins can restore backups.")}, status=403)
+
+    if request.method == 'POST':
+        filename = request.POST.get('filename')
+        if not filename:
+            return JsonResponse({'status': 'error', 'message': _("No backup filename provided.")}, status=400)
+
+        try:
+            # Путь к файлу резервной копии
+            backup_path = os.path.join(settings.MEDIA_ROOT, 'backups', filename)
+            print(f"Restoring from backup: {backup_path}")  # Отладка
+            if not os.path.exists(backup_path):
+                return JsonResponse({'status': 'error', 'message': _("Backup file not found.")}, status=404)
+
+            # Проверяем права доступа к папке backups
+            backups_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
+            if not os.path.exists(backups_dir):
+                print(f"Creating backups directory: {backups_dir}")  # Отладка
+                os.makedirs(backups_dir, exist_ok=True)
+
+            if not os.access(backups_dir, os.W_OK):
+                print(f"No write permission for backups directory: {backups_dir}")  # Отладка
+                return JsonResponse({'status': 'error', 'message': _("Backups directory lacks write permissions.")}, status=500)
+
+            # Путь к текущей базе данных
+            db_path = settings.DATABASES['default']['NAME']
+            print(f"Current database path: {db_path}")  # Отладка
+
+            # Проверяем права доступа к файлу базы данных
+            if not os.access(db_path, os.W_OK):
+                print(f"No write permission for database: {db_path}")  # Отладка
+                return JsonResponse({'status': 'error', 'message': _("Database file is read-only or lacks write permissions.")}, status=500)
+
+            # Проверяем права доступа к родительской папке базы данных
+            db_dir = os.path.dirname(db_path)
+            if not os.access(db_dir, os.W_OK):
+                print(f"No write permission for database directory: {db_dir}")  # Отладка
+                return JsonResponse({'status': 'error', 'message': _("Database directory lacks write permissions.")}, status=500)
+
+            # Создаём резервную копию текущей базы перед восстановлением
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            current_backup_path = os.path.join(backups_dir, f"pre_restore_{timestamp}.sql")
+            print(f"Creating pre-restore backup: {current_backup_path}")  # Отладка
+            with open(current_backup_path, 'w', encoding='utf-8') as f:
+                process = subprocess.run(['sqlite3', db_path, '.dump'], stdout=subprocess.PIPE, text=True, check=True)
+                f.write(process.stdout)
+
+            # Закрываем все соединения с базой данных
+            print("Closing database connections")  # Отладка
+            connections.close_all()
+
+            # Создаём временную базу данных
+            temp_db_path = os.path.join(settings.MEDIA_ROOT, f'temp_restore_{timestamp}.sqlite3')
+            print(f"Creating temporary database: {temp_db_path}")  # Отладка
+
+            # Проверяем права доступа к MEDIA_ROOT для временной базы
+            if not os.access(settings.MEDIA_ROOT, os.W_OK):
+                print(f"No write permission for media directory: {settings.MEDIA_ROOT}")  # Отладка
+                return JsonResponse({'status': 'error', 'message': _("Media directory lacks write permissions.")}, status=500)
+
+            # Создаём пустую временную базу
+            open(temp_db_path, 'a').close()
+            os.chmod(temp_db_path, 0o664)  # Устанавливаем права для временного файла
+
+            # Проверяем права доступа к временной базе
+            if not os.access(temp_db_path, os.W_OK):
+                print(f"No write permission for temporary database: {temp_db_path}")  # Отладка
+                return JsonResponse({'status': 'error', 'message': _("Temporary database file lacks write permissions.")}, status=500)
+
+            # Восстанавливаем базу из SQL-дампа
+            print(f"Restoring SQL dump to temporary database: {temp_db_path}")  # Отладка
+            with open(backup_path, 'r', encoding='utf-8') as f:
+                sql_dump = f.read()
+                conn = sqlite3.connect(temp_db_path)
+                try:
+                    conn.executescript(sql_dump)
+                    conn.commit()
+                finally:
+                    conn.close()
+
+            # Заменяем текущую базу восстановленной
+            print(f"Replacing current database with restored: {db_path}")  # Отладка
+            os.replace(temp_db_path, db_path)
+
+            # Логирование
+            UserActionLog.objects.create(
+                user=request.user,
+                action_type='restore_backup',
+                details=f"Restored database from SQL backup '{filename}'",
+                performed_by=request.user
+            )
+
+            print("Database restored successfully")  # Отладка
+            return JsonResponse({'status': 'success', 'message': _("Database restored successfully.")})
+        except subprocess.CalledProcessError as e:
+            print(f"Subprocess error during restore: {str(e)}")  # Отладка
+            return JsonResponse({'status': 'error', 'message': f"Failed to process SQL dump: {str(e)}"}, status=500)
+        except sqlite3.Error as e:
+            print(f"SQLite error during restore: {str(e)}")  # Отладка
+            return JsonResponse({'status': 'error', 'message': f"SQLite error: {str(e)}"}, status=500)
+        except Exception as e:
+            print(f"General error during restore: {str(e)}")  # Отладка
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    return JsonResponse({'status': 'error', 'message': _("Invalid request method.")}, status=400)
+
+@login_required
+def delete_backup(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': _("Only admins can delete backups.")}, status=403)
+
+    if request.method == 'POST':
+        filename = request.POST.get('filename')
+        try:
+            backup_path = os.path.join(settings.MEDIA_ROOT, 'backups', filename)
+            if not os.path.exists(backup_path):
+                return JsonResponse({'status': 'error', 'message': _("Backup file not found.")}, status=404)
+
+            os.remove(backup_path)
+
+            # Логирование
+            UserActionLog.objects.create(
+                user=request.user,
+                action_type='delete_backup',
+                details=f"Deleted SQL backup '{filename}'",
+                performed_by=request.user
+            )
+
+            return JsonResponse({'status': 'success', 'message': _("Backup deleted successfully.")})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    return JsonResponse({'status': 'error', 'message': _("Invalid request method.")}, status=400)

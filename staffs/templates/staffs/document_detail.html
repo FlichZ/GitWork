@@ -112,27 +112,27 @@ document.addEventListener('DOMContentLoaded', function () {
                 const documentId = this.getAttribute('data-document-id');
                 fetch("{% url 'staffs:delete_document' %}", {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-CSRFToken': '{{ csrf_token }}',
-                    },
-                    body: `document_id=${documentId}`
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        alert(data.message);
-                        window.location.href = "{% url 'staffs:dashboard' %}";
-                    } else {
-                        alert(data.message);
-                    }
-                })
-                .catch(error => {
-                    alert('Error: ' + error);
-                });
-            }
-        });
-    }
-});
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': '{{ csrf_token }}',
+                        },
+                        body: `document_id=${documentId}`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            alert(data.message);
+                            window.location.href = "{% url 'staffs:dashboard' %}";
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error: ' + error);
+                    });
+                }
+            });
+        }
+    });
 </script>
 {% endblock content %}
