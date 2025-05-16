@@ -33,7 +33,7 @@
 2. Клонируйте репозиторий:
    ```bash
    git clone https://github.com/FlichZ/GitWork
-   cd docflow-guardian
+   cd GitWork
    ```
 
 3. Запустите контейнеры:
@@ -51,8 +51,8 @@
 
 1. Клонируйте репозиторий:
    ```bash
-   git clone https://github.com/yourusername/docflow-guardian.git
-   cd docflow-guardian
+   git clone https://github.com/FlichZ/GitWork
+   cd GitWork
    ```
 
 2. Запустите скрипт установки:
@@ -70,7 +70,7 @@
 1. Клонируйте репозиторий:
    ```bash
    git clone https://github.com/FlichZ/GitWork
-   cd docflow-guardian
+   cd GitWork
    ```
 
 2. Создайте и активируйте виртуальное окружение:
