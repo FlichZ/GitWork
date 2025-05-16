@@ -74,19 +74,72 @@
                                     <circle cx="12" cy="7" r="4"></circle>
                                 </svg>
                             </div>
-                            <h2 class="text-gray-900 text-lg title-font font-medium">{{ user.username }}</h2>
+                            <h2 class="text-gray-900 text-lg title-font font-medium user-name">{{ user.username }}</h2>
+                            <!-- Поле редактирования имени (изначально скрыто) -->
+                            <div class="edit-fields hidden ml-3 flex-grow">
+                                <input type="text" class="user-name-input w-full px-2 py-1 rounded border border-gray-300" 
+                                       value="{{ user.username }}" placeholder="{% trans 'Username' %}" disabled>
+                            </div>
                         </div>
-                        <div class="flex-grow">
+                        
+                        <div class="view-mode">
                             <p class="leading-relaxed text-base">{% trans "Organization" %}: {{ user.organization.name|default:"No Organization" }}</p>
                             <div class="mt-3">
-                                <select class="bg-gray-100 border-0 py-1 px-2 rounded text-sm focus:outline-none hover:bg-gray-200 change-role" data-user-id="{{ user.id }}">
+                                <p class="text-sm text-gray-600">{% trans "Role" %}: {{ user.get_role_display }}</p>
+                            </div>
+                        </div>
+                        <!-- Поля редактирования (изначально скрыты) -->
+                        <div class="edit-fields hidden mt-3">
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Organization" %}</label>
+                                <select class="user-org-input w-full px-2 py-1 rounded border border-gray-300" disabled>
+                                    <option value="">{% trans "No Organization" %}</option>
+                                    {% for org in organizations %}
+                                        <option value="{{ org.id }}" {% if user.organization.id == org.id %}selected{% endif %}>{{ org.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Role" %}</label>
+                                <select class="user-role-input w-full px-2 py-1 rounded border border-gray-300" disabled>
                                     {% for role, label in role_choices %}
                                         <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="mt-4">
-                                <button class="text-red-500 inline-flex items-center delete-user" data-user-id="{{ user.id }}">{% trans "Delete" %}
+                            <div class="mt-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "New Password" %}</label>
+                                <input type="password" class="user-password-input w-full px-2 py-1 rounded border border-gray-300" 
+                                       placeholder="{% trans 'Enter new password' %}" disabled>
+                                <p class="text-xs text-gray-500 mt-1">{% trans "Leave empty to keep current password" %}</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-between items-center">
+                            <div class="view-mode">
+                                <button class="text-green-500 inline-flex items-center edit-user mr-3" data-user-id="{{ user.id }}">
+                                    {% trans "Edit" %}
+                                    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+                                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                </button>
+                                <button class="text-red-500 inline-flex items-center delete-user" data-user-id="{{ user.id }}">
+                                    {% trans "Delete" %}
+                                    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <!-- Кнопки сохранения/отмены (изначально скрыты) -->
+                            <div class="edit-fields hidden">
+                                <button class="text-green-500 inline-flex items-center save-user mr-3" data-user-id="{{ user.id }}">
+                                    {% trans "Save" %}
+                                    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                        <path d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </button>
+                                <button class="text-gray-500 inline-flex items-center cancel-edit">
+                                    {% trans "Cancel" %}
                                     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
                                         <path d="M6 18L18 6M6 6l12 12"></path>
                                     </svg>
@@ -162,29 +215,61 @@
                                     <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h-2m-2 0h-2m-2 0h-2m-2 0h-2"></path>
                                 </svg>
                             </div>
-                            <h2 class="text-gray-900 text-lg title-font font-medium">{{ org.name }}</h2>
+                            <h2 class="text-gray-900 text-lg title-font font-medium org-name">{{ org.name }}</h2>
+                            <!-- Поле редактирования имени (изначально скрыто) -->
+                            <div class="edit-fields hidden ml-3 flex-grow">
+                                <input type="text" class="org-name-input w-full px-2 py-1 rounded border border-gray-300" 
+                                       value="{{ org.name }}" placeholder="{% trans 'Organization name' %}" disabled>
+                            </div>
                         </div>
-                        <div class="flex-grow">
+                        
+                        <div class="view-mode">
                             <p class="leading-relaxed text-base">{% trans "PrimeTech" %}: {{ org.is_prime_tech|yesno:_("Yes,No") }}</p>
+                        </div>
+                        <!-- Поля редактирования (изначально скрыты) -->
+                        <div class="edit-fields hidden mt-3">
+                            <label class="flex items-center">
+                                <input type="checkbox" class="org-prime-tech-input mr-2" 
+                                       {% if org.is_prime_tech %}checked{% endif %} disabled>
+                                <span>{% trans "Is PrimeTech" %}</span>
+                            </label>
+                        </div>
                             <div class="mt-4 flex justify-between items-center">
-                                <button class="text-indigo-500 inline-flex items-center view-users" data-org-id="{{ org.id }}">{% trans "View Users" %}
+                            <button class="text-indigo-500 inline-flex items-center view-users" data-org-id="{{ org.id }}">
+                                {% trans "View Users" %}
                                     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
                                         <path d="M5 12h14M12 5l7 7-7 7"></path>
                                     </svg>
                                 </button>
-                                <div>
-                                    <button class="text-green-500 inline-flex items-center edit-org mr-3" data-org-id="{{ org.id }}">{% trans "Edit" %}
+                            <div class="view-mode">
+                                <button class="text-green-500 inline-flex items-center edit-org mr-3" data-org-id="{{ org.id }}">
+                                    {% trans "Edit" %}
                                         <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
                                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
                                             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                         </svg>
                                     </button>
-                                    <button class="text-red-500 inline-flex items-center delete-org" data-org-id="{{ org.id }}">{% trans "Delete" %}
+                                <button class="text-red-500 inline-flex items-center delete-org" data-org-id="{{ org.id }}">
+                                    {% trans "Delete" %}
+                                    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <!-- Кнопки сохранения/отмены (изначально скрыты) -->
+                            <div class="edit-fields hidden">
+                                <button class="text-green-500 inline-flex items-center save-org mr-3" data-org-id="{{ org.id }}">
+                                    {% trans "Save" %}
+                                    <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
+                                        <path d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </button>
+                                <button class="text-gray-500 inline-flex items-center cancel-edit">
+                                    {% trans "Cancel" %}
                                         <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
                                             <path d="M6 18L18 6M6 6l12 12"></path>
                                         </svg>
                                     </button>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -195,111 +280,216 @@
                 </div>
                 {% endfor %}
             </div>
-
-            <!-- Модальное окно для редактирования организации -->
-            <div id="edit-org-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-                <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                    <div class="mt-3 text-center">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900">{% trans "Edit Organization" %}</h3>
-                        <form id="edit-org-form" method="post" action="{% url 'staffs:edit_organization' %}">
-                            {% csrf_token %}
-                            <input type="hidden" name="org_id" id="edit-org-id">
-                            <div class="mt-2">
-                                <label class="block text-sm font-medium text-gray-700">{% trans "Name" %}</label>
-                                <input type="text" name="name" id="edit-org-name" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
-                            </div>
-                            <div class="mt-2">
-                                <label class="block text-sm font-medium text-gray-700">{% trans "Is PrimeTech" %}</label>
-                                <input type="checkbox" name="is_prime_tech" id="edit-org-is-prime-tech" class="mt-1">
-                            </div>
-                            <div class="mt-4">
-                                <button type="submit" class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700">{% trans "Save" %}</button>
-                                <button type="button" class="inline-flex justify-center px-4 py-2 ml-2 text-sm font-medium text-gray-700 bg-gray-200 border border-transparent rounded-md hover:bg-gray-300" onclick="closeEditOrgModal()">{% trans "Cancel" %}</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Модальное окно для просмотра пользователей -->
-            <div id="view-users-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-                <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                    <div class="mt-3">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900">{% trans "Users in Organization" %}</h3>
-                        <div id="users-list" class="mt-2"></div>
-                        <div class="mt-4">
-                            <button type="button" class="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 border border-transparent rounded-md hover:bg-gray-300" onclick="closeViewUsersModal()">{% trans "Close" %}</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </section>
 
 <!-- JavaScript -->
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    // Переключение вкладок
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabContents = document.querySelectorAll('.tab-content');
-
-    tabButtons.forEach(button => {
-        button.addEventListener('click', function (e) {
-            e.preventDefault();
-            const tab = this.getAttribute('data-tab');
-
-            tabButtons.forEach(btn => {
-                btn.classList.remove('text-indigo-600', 'border-indigo-600', 'active');
-                btn.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+document.addEventListener('DOMContentLoaded', function() {
+    // Редактирование пользователя
+    const editUserButtons = document.querySelectorAll('.edit-user');
+    editUserButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const card = this.closest('.p-4');
+            
+            // Показываем поля редактирования и скрываем обычный вид
+            card.querySelectorAll('.edit-fields').forEach(el => {
+                el.classList.remove('hidden');
+                // Enable all inputs in edit mode
+                el.querySelectorAll('input, select').forEach(input => {
+                    input.disabled = false;
+                });
             });
-            this.classList.add('text-indigo-600', 'border-indigo-600', 'active');
-            this.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
-
-            tabContents.forEach(content => content.style.display = 'none');
-            document.getElementById(`${tab}-tab`).style.display = 'block';
-
-            const url = new URL(window.location);
-            url.searchParams.set('tab', tab);
-            window.history.pushState({}, '', url);
+            card.querySelectorAll('.view-mode').forEach(el => el.classList.add('hidden'));
+            card.querySelector('.user-name').classList.add('hidden');
         });
     });
 
-    // Изменение роли пользователя
-    const roleSelects = document.querySelectorAll('.change-role');
-    roleSelects.forEach(select => {
-        select.addEventListener('change', function () {
+    // Отмена редактирования пользователя
+    const cancelUserButtons = document.querySelectorAll('.cancel-edit');
+    cancelUserButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const card = this.closest('.p-4');
+            
+            // Скрываем поля редактирования и показываем обычный вид
+            card.querySelectorAll('.edit-fields').forEach(el => {
+                el.classList.add('hidden');
+                // Disable all inputs when canceling
+                el.querySelectorAll('input, select').forEach(input => {
+                    input.disabled = true;
+                });
+            });
+            card.querySelectorAll('.view-mode').forEach(el => el.classList.remove('hidden'));
+            card.querySelector('.user-name').classList.remove('hidden');
+        });
+    });
+
+    // Редактирование организации
+    const editOrgButtons = document.querySelectorAll('.edit-org');
+    editOrgButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const card = this.closest('.p-4');
+            
+            // Показываем поля редактирования и скрываем обычный вид
+            card.querySelectorAll('.edit-fields').forEach(el => {
+                el.classList.remove('hidden');
+                // Enable all inputs in edit mode
+                el.querySelectorAll('input, select').forEach(input => {
+                    input.disabled = false;
+                });
+            });
+            card.querySelectorAll('.view-mode').forEach(el => el.classList.add('hidden'));
+            card.querySelector('.org-name').classList.add('hidden');
+        });
+    });
+
+    // Отмена редактирования организации
+    const cancelOrgButtons = document.querySelectorAll('.cancel-edit');
+    cancelOrgButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const card = this.closest('.p-4');
+            
+            // Скрываем поля редактирования и показываем обычный вид
+            card.querySelectorAll('.edit-fields').forEach(el => {
+                el.classList.add('hidden');
+                // Disable all inputs when canceling
+                el.querySelectorAll('input, select').forEach(input => {
+                    input.disabled = true;
+                });
+            });
+            card.querySelectorAll('.view-mode').forEach(el => el.classList.remove('hidden'));
+            card.querySelector('.org-name').classList.remove('hidden');
+        });
+    });
+
+    // Save functionality for users
+    const saveUserButtons = document.querySelectorAll('.save-user');
+    saveUserButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const card = this.closest('.p-4');
             const userId = this.getAttribute('data-user-id');
-            const newRole = this.value;
-            if (newRole) {
-                fetch("{% url 'staffs:change_user_role' %}", {
+            const newUsername = card.querySelector('.user-name-input').value;
+            const newRole = card.querySelector('.user-role-input').value;
+            const newOrgId = card.querySelector('.user-org-input').value;
+            const newPassword = card.querySelector('.user-password-input').value;
+
+            fetch("{% url 'staffs:edit_user' %}", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'X-CSRFToken': '{{ csrf_token }}',
                     },
-                    body: `user_id=${userId}&role=${newRole}`
+                body: `user_id=${userId}&username=${encodeURIComponent(newUsername)}&role=${newRole}&organization=${newOrgId}`
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
+                    // Update displayed data
+                    card.querySelector('.user-name').textContent = newUsername;
+                    
+                    // Get role and organization text
+                    const roleText = card.querySelector('.user-role-input option:checked').text;
+                    const orgText = card.querySelector('.user-org-input option:checked').text;
+                    
+                    // Update card information
+                    const viewMode = card.querySelector('.view-mode');
+                    viewMode.querySelector('p').textContent = `{% trans "Organization" %}: ${orgText}`;
+                    viewMode.querySelector('.text-sm').textContent = `{% trans "Role" %}: ${roleText}`;
+                    
+                    // Return to view mode
+                    card.querySelectorAll('.edit-fields').forEach(el => {
+                        el.classList.add('hidden');
+                        // Disable inputs
+                        el.querySelectorAll('input, select').forEach(input => {
+                            input.disabled = true;
+        });
+    });
+                    card.querySelectorAll('.view-mode').forEach(el => el.classList.remove('hidden'));
+                    card.querySelector('.user-name').classList.remove('hidden');
+                    
+                    // Handle password changes separately
+                    if (newPassword && newPassword.length > 0) {
+                        fetch("{% url 'staffs:change_password' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                            body: `user_id=${userId}&new_password=${encodeURIComponent(newPassword)}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                            // Always clear password field regardless of success or failure
+                            card.querySelector('.user-password-input').value = '';
                         alert(data.message);
-                        location.reload();
+                        })
+                        .catch(error => {
+                            // Clear password field on error too
+                            card.querySelector('.user-password-input').value = '';
+                            alert('Error: ' + error);
+                        });
+                    }
                     } else {
                         alert(data.message);
                     }
                 })
                 .catch(error => alert('Error: ' + error));
-            }
         });
     });
 
+    // Save functionality for organizations
+    const saveOrgButtons = document.querySelectorAll('.save-org');
+    saveOrgButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const card = this.closest('.p-4');
+            const orgId = this.getAttribute('data-org-id');
+            const newName = card.querySelector('.org-name-input').value;
+            const isPrimeTech = card.querySelector('.org-prime-tech-input').checked;
+
+            fetch("{% url 'staffs:edit_organization' %}", {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/x-www-form-urlencoded',
+                                                'X-CSRFToken': '{{ csrf_token }}',
+                                            },
+                body: `org_id=${orgId}&name=${encodeURIComponent(newName)}&is_prime_tech=${isPrimeTech}`
+                                        })
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.status === 'success') {
+                    // Update displayed data
+                    card.querySelector('.org-name').textContent = newName;
+                    card.querySelector('.view-mode p').textContent = `{% trans "PrimeTech" %}: ${isPrimeTech ? '{% trans "Yes" %}' : '{% trans "No" %}'}`;
+                    
+                    // Return to view mode
+                    card.querySelectorAll('.edit-fields').forEach(el => {
+                        el.classList.add('hidden');
+                        // Disable inputs
+                        el.querySelectorAll('input, select').forEach(input => {
+                            input.disabled = true;
+                                });
+                            });
+                    card.querySelectorAll('.view-mode').forEach(el => el.classList.remove('hidden'));
+                    card.querySelector('.org-name').classList.remove('hidden');
+                    
+                    alert(data.message);
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => alert('Error: ' + error));
+        });
+    });
+    
     // Удаление пользователя
-    const deleteButtons = document.querySelectorAll('.delete-user');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function () {
-            if (confirm("{% trans 'Are you sure you want to delete this user?' %}")) {
-                const userId = this.getAttribute('data-user-id');
+    const deleteUserButtons = document.querySelectorAll('.delete-user');
+    deleteUserButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.getAttribute('data-user-id');
+            const userName = this.closest('.p-4').querySelector('.user-name').textContent;
+            
+            if (confirm(`{% trans "Are you sure you want to delete user" %} "${userName}"?`)) {
                 fetch("{% url 'staffs:delete_user' %}", {
                     method: 'POST',
                     headers: {
@@ -311,8 +501,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
+                        // Удаляем карточку пользователя из DOM
+                        this.closest('.p-4').remove();
                         alert(data.message);
-                        location.reload();
                     } else {
                         alert(data.message);
                     }
@@ -321,39 +512,15 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
-
-    // Редактирование организации
-    const editButtons = document.querySelectorAll('.edit-org');
-    editButtons.forEach(button => {
-        button.addEventListener('click', function () {
-            const orgId = this.getAttribute('data-org-id');
-            fetch(`{% url 'staffs:get_organization' %}?org_id=${orgId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        document.getElementById('edit-org-id').value = data.organization.id;
-                        document.getElementById('edit-org-name').value = data.organization.name;
-                        document.getElementById('edit-org-is-prime-tech').checked = data.organization.is_prime_tech;
-                        document.getElementById('edit-org-modal').classList.remove('hidden');
-                    } else {
-                        alert(data.message);
-                    }
-                })
-                .catch(error => alert('Error: ' + error));
-        });
-    });
-
-    // Закрытие модального окна редактирования
-    function closeEditOrgModal() {
-        document.getElementById('edit-org-modal').classList.add('hidden');
-    }
-
+    
     // Удаление организации
     const deleteOrgButtons = document.querySelectorAll('.delete-org');
     deleteOrgButtons.forEach(button => {
-        button.addEventListener('click', function () {
-            if (confirm("{% trans 'Are you sure you want to delete this organization?' %}")) {
-                const orgId = this.getAttribute('data-org-id');
+        button.addEventListener('click', function() {
+            const orgId = this.getAttribute('data-org-id');
+            const orgName = this.closest('.p-4').querySelector('.org-name').textContent;
+            
+            if (confirm(`{% trans "Are you sure you want to delete organization" %} "${orgName}"?`)) {
                 fetch("{% url 'staffs:delete_organization' %}", {
                     method: 'POST',
                     headers: {
@@ -365,8 +532,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
+                        // Удаляем карточку организации из DOM
+                        this.closest('.p-4').remove();
                         alert(data.message);
-                        location.reload();
                     } else {
                         alert(data.message);
                     }
@@ -375,6 +543,9 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
+});
+</script>
+{% endblock content %}
 
     // Просмотр пользователей организации
     const viewUsersButtons = document.querySelectorAll('.view-users');
@@ -442,4 +613,3 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
-{% endblock content %}

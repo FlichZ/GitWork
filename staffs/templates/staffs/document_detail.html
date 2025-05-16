@@ -7,6 +7,30 @@
         <div class="flex flex-col text-center w-full mb-12">
             <h1 class="sm:text-3xl text-2xl font-medium title-font mb-4 text-gray-900">{{ document.document_name }}</h1>
         </div>
+        <div class="flex justify-between mb-6">
+            <div class="flex space-x-3">
+                <a href="{% url 'staffs:dashboard' %}" class="inline-flex items-center px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    {% trans "Back to Dashboard" %}
+                </a>
+                <a href="{% url 'staffs:document_versions' document.id %}" class="inline-flex items-center px-4 py-2 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    {% trans "View All Versions" %}
+                </a>
+            </div>
+            {% if document.sender.user == request.user or is_prime_tech %}
+            <a href="{% url 'staffs:create_version' document.id %}" class="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                {% trans "Create New Version" %}
+            </a>
+            {% endif %}
+        </div>
         <div class="lg:w-2/3 w-full mx-auto bg-white rounded-lg shadow-lg p-8">
             <p class="leading-relaxed text-base mb-4">{{ document.document_description }}</p>
             <div class="mb-2 flex items-center">
@@ -20,9 +44,12 @@
                 </select>
                 {% endif %}
             </div>
-            <p class="mb-2"><strong>{% trans "Sender" %}:</strong> {{ document.sender.username }}</p>
-            <p class="mb-2"><strong>{% trans "Recipient" %}:</strong> {{ document.recipient.username }}</p>
+            <p class="mb-2"><strong>{% trans "Sender" %}:</strong> {{ document.sender.user.username }} ({{ document.sender_organization.name }})</p>
+            <p class="mb-2"><strong>{% trans "Recipient" %}:</strong> {% if document.recipient %}{{ document.recipient.username }} ({{ document.recipient_organization.name }}){% else %}{{ document.recipient_name }}{% endif %}</p>
             <p class="mb-2"><strong>{% trans "Date Created" %}:</strong> {{ document.date_created }}</p>
+            {% if document.date_sent %}
+            <p class="mb-2"><strong>{% trans "Date Sent" %}:</strong> {{ document.date_sent }}</p>
+            {% endif %}
             {% if document.date_received %}
             <p class="mb-2"><strong>{% trans "Date Received" %}:</strong> {{ document.date_received }}</p>
             {% endif %}
@@ -32,22 +59,26 @@
                 <pre class="text-sm text-gray-600">{{ document.status_change_log }}</pre>
             </div>
             {% endif %}
-            <div class="mt-4 flex items-center space-x-4">
                 {% if document.document_content %}
-                <a href="{{ document.document_content.url }}" class="text-indigo-500 inline-flex items-center">{% trans "Download Document" %}
+            <div class="mt-4">
+                <a href="{{ document.document_content.url }}" class="inline-flex items-center text-indigo-500">
+                    {% trans "Download Document" %}
                     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
                         <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
                 </a>
+            </div>
+            {% endif %}
                 {% if is_prime_tech %}
-                <button class="text-red-500 inline-flex items-center delete-document" data-document-id="{{ document.id }}">{% trans "Delete Document" %}
+            <div class="mt-4">
+                <button class="text-red-500 inline-flex items-center delete-document" data-document-id="{{ document.id }}">
+                    {% trans "Delete Document" %}
                     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
                         <path d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                 </button>
-                {% endif %}
-                {% endif %}
             </div>
+            {% endif %}
             <!-- Отображение страниц -->
             <div class="mt-8">
                 <h2 class="text-lg font-semibold mb-4">{% trans "Document Preview" %}</h2>
@@ -73,11 +104,10 @@
 
 <!-- JavaScript для изменения статуса и удаления документа -->
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    // Изменение статуса
-    const statusSelect = document.querySelector('.change-status');
-    if (statusSelect) {
-        statusSelect.addEventListener('change', function () {
+document.addEventListener('DOMContentLoaded', function() {
+    const changeStatusSelect = document.querySelector('.change-status');
+    if (changeStatusSelect) {
+        changeStatusSelect.addEventListener('change', function() {
             const documentId = this.getAttribute('data-document-id');
             const newStatus = this.value;
             if (newStatus) {
@@ -97,17 +127,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         alert(data.message);
                     }
                 })
-                .catch(error => {
-                    alert('Error: ' + error);
-                });
+                .catch(error => alert('Error: ' + error));
             }
         });
     }
 
-    // Удаление документа
     const deleteButton = document.querySelector('.delete-document');
     if (deleteButton) {
-        deleteButton.addEventListener('click', function () {
+        deleteButton.addEventListener('click', function() {
             if (confirm("{% trans 'Are you sure you want to delete this document?' %}")) {
                 const documentId = this.getAttribute('data-document-id');
                 fetch("{% url 'staffs:delete_document' %}", {
@@ -121,15 +148,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
-                            alert(data.message);
                             window.location.href = "{% url 'staffs:dashboard' %}";
                         } else {
                             alert(data.message);
                         }
                     })
-                    .catch(error => {
-                        alert('Error: ' + error);
-                    });
+                .catch(error => alert('Error: ' + error));
                 }
             });
         }

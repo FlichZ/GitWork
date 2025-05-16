@@ -6,106 +6,191 @@
     <div class="container px-5 py-24 mx-auto">
         <div class="flex flex-col text-center w-full mb-12">
             <h1 class="sm:text-3xl text-2xl font-medium title-font mb-4 text-gray-900">{% trans "Notifications" %}</h1>
-            <p class="lg:w-2/3 mx-auto leading-relaxed text-base">{% trans "View your notifications." %}</p>
+            <p class="lg:w-2/3 mx-auto leading-relaxed text-base">
+                {% if unread_count %}
+                    {% blocktrans with count=unread_count %}
+                        You have {{ count }} unread notification{{ count|pluralize }}.
+                    {% endblocktrans %}
+                {% else %}
+                    {% trans "You have no unread notifications." %}
+                {% endif %}
+            </p>
         </div>
 
-        <!-- Список уведомлений -->
-        <div class="flex justify-center">
-            <div class="w-full max-w-3xl">
+        <div class="flex justify-between items-center mb-6">
+            {% if unread_count %}
+                <button id="mark-all-read" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
+                    {% trans "Mark All as Read" %}
+                </button>
+            {% endif %}
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div id="notifications-container" class="divide-y divide-gray-200">
+                {% if notifications %}
                 {% for notification in notifications %}
-                <div class="p-4 mb-4 rounded-lg shadow {% if notification.is_read %}bg-gray-100{% else %}bg-blue-100{% endif %}">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="{% if not notification.is_read %}font-semibold{% endif %}">{{ notification.message }}</p>
-                            <p class="text-sm text-gray-500">{{ notification.created_at }}</p>
+                        <div class="notification-item p-4 bg-blue-50 hover:bg-gray-50 transition duration-150 flex justify-between items-center"
+                             data-notification-id="{{ notification.id }}">
+                            <div class="flex-grow">
+                                <div class="flex items-center">
+                                    <span class="h-2 w-2 bg-blue-600 rounded-full mr-2"></span>
+                                    <p class="text-gray-800">{{ notification.message }}</p>
+                                </div>
+                                <p class="text-sm text-gray-500 mt-1">{{ notification.created_at|date:"d.m.Y H:i" }}</p>
+                            </div>
+                            <button class="mark-as-read ml-4 bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-lg transition duration-200">
+                                {% trans "Mark as Read" %}
+                            </button>
                         </div>
-                        {% if not notification.is_read %}
-                        <form method="post" class="mark-as-read-form">
-                            {% csrf_token %}
-                            <input type="hidden" name="notification_id" value="{{ notification.id }}">
-                            <button type="submit" name="mark_as_read" class="text-blue-500 hover:underline">{% trans "Mark as Read" %}</button>
-                        </form>
-                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="p-8 text-center text-gray-500">
+                        {% trans "No unread notifications" %}
                     </div>
-                </div>
-                {% empty %}
-                <p class="text-center text-gray-500">{% trans "No notifications found." %}</p>
-                {% endfor %}
-            </div>
+                {% endif %}
         </div>
 
         <!-- Пагинация -->
         {% if page_obj.has_other_pages %}
-        <div class="flex justify-center mt-8">
-            <nav class="inline-flex rounded-md shadow">
+                <div class="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                    <div class="flex justify-center">
+                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                 {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-700 hover:bg-gray-200 mr-1">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                    </svg>
-                </a>
-                {% else %}
-                <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-l-md text-gray-400 cursor-not-allowed mr-1">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                    </svg>
-                </span>
+                                <a href="?page={{ page_obj.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                    <span class="sr-only">Previous</span>
+                                    &larr;
+                                </a>
                 {% endif %}
 
-                {% for num in page_obj.paginator.page_range %}
-                {% if num == page_obj.number %}
-                <span class="px-3 py-2 bg-indigo-500 text-white border border-indigo-500 mr-1">{{ num }}</span>
+                            {% for i in page_obj.paginator.page_range %}
+                                {% if page_obj.number == i %}
+                                    <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-indigo-50 text-sm font-medium text-indigo-600">
+                                        {{ i }}
+                                    </span>
                 {% else %}
-                <a href="?page={{ num }}" class="px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 mr-1">{{ num }}</a>
+                                    <a href="?page={{ i }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                        {{ i }}
+                                    </a>
                 {% endif %}
                 {% endfor %}
 
                 {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-200">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                </a>
-                {% else %}
-                <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-r-md text-gray-400 cursor-not-allowed">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                </span>
+                                <a href="?page={{ page_obj.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                    <span class="sr-only">Next</span>
+                                    &rarr;
+                                </a>
                 {% endif %}
             </nav>
+                    </div>
         </div>
         {% endif %}
+        </div>
     </div>
 </section>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const forms = document.querySelectorAll('.mark-as-read-form');
-    forms.forEach(form => {
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const formData = new FormData(form);
+document.addEventListener('DOMContentLoaded', function() {
+    const notificationsContainer = document.getElementById('notifications-container');
+
+    // Функция для проверки наличия уведомлений
+    function checkNotifications() {
+        const remainingNotifications = notificationsContainer.querySelectorAll('.notification-item');
+        if (remainingNotifications.length === 0) {
+            // Если уведомлений нет, показываем сообщение и перезагружаем страницу
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        }
+    }
+
+    // Функция для отметки уведомления как прочитанного
+    function markAsRead(notificationId) {
             fetch("{% url 'staffs:notifications' %}", {
                 method: 'POST',
-                body: formData,
                 headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': '{{ csrf_token }}',
                 },
+            body: `notification_id=${notificationId}&mark_as_read=true`
             })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    location.reload();
-                } else {
-                    alert(data.message);
+                const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                if (notificationItem) {
+                    // Анимация удаления
+                    notificationItem.style.transition = 'all 0.3s ease';
+                    notificationItem.style.opacity = '0';
+                    notificationItem.style.height = notificationItem.offsetHeight + 'px';
+                    
+                    setTimeout(() => {
+                        notificationItem.style.height = '0';
+                        notificationItem.style.padding = '0';
+                        notificationItem.style.margin = '0';
+                        
+                        setTimeout(() => {
+                            notificationItem.remove();
+                            checkNotifications();
+                        }, 300);
+                    }, 300);
+                }
+                
+                // Обновляем счетчик уведомлений в шапке, если он есть
+                const notificationCounter = document.querySelector('#notification-counter');
+                if (notificationCounter) {
+                    const currentCount = parseInt(notificationCounter.textContent);
+                    if (currentCount > 0) {
+                        notificationCounter.textContent = currentCount - 1;
+                        if (currentCount - 1 === 0) {
+                            notificationCounter.classList.add('hidden');
+                        }
+                    }
+                }
                 }
             })
             .catch(error => {
-                alert('Error: ' + error);
+            console.error('Error:', error);
+            // Показываем уведомление об ошибке
+            const errorNotification = document.createElement('div');
+            errorNotification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg';
+            errorNotification.textContent = '{% trans "Error marking notification as read" %}';
+            document.body.appendChild(errorNotification);
+            setTimeout(() => errorNotification.remove(), 3000);
             });
+    }
+
+    // Обработчик для кнопок "Отметить как прочитанное"
+    document.querySelectorAll('.mark-as-read').forEach(button => {
+        button.addEventListener('click', function() {
+            const notificationItem = this.closest('.notification-item');
+            const notificationId = notificationItem.dataset.notificationId;
+            markAsRead(notificationId);
         });
     });
+
+    // Обработчик для кнопки "Отметить все как прочитанные"
+    const markAllReadButton = document.getElementById('mark-all-read');
+    if (markAllReadButton) {
+        markAllReadButton.addEventListener('click', function() {
+            const notifications = document.querySelectorAll('.notification-item');
+            if (notifications.length > 0) {
+                let processed = 0;
+                notifications.forEach((item, index) => {
+                    const notificationId = item.dataset.notificationId;
+                    setTimeout(() => {
+                        markAsRead(notificationId);
+                        processed++;
+                        if (processed === notifications.length) {
+                            // После обработки всех уведомлений перезагружаем страницу
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 500);
+                        }
+                    }, index * 100); // Задержка между запросами
+                });
+            }
+        });
+    }
 });
 </script>
 {% endblock content %}

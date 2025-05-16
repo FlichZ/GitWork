@@ -1,5 +1,5 @@
 """
-WSGI config for document_tracker project.
+WSGI config for DocFlow Guardian project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

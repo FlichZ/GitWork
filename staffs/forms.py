@@ -1,6 +1,7 @@
 from django import forms
 from .models import Document, User, Organization
 from django.contrib.auth.forms import UserCreationForm
+from django.db import models
 
 
 class SendDocumentForm(forms.ModelForm):
@@ -12,13 +13,19 @@ class SendDocumentForm(forms.ModelForm):
         fields = ['document_name', 'document_description', 'summary', 'document_content', 'recipient', 'recipient_name']
 
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)  # Получаем текущего пользователя
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        if self.user and self.user.organization and not self.user.organization.is_prime_tech:
-            # Внешние организации могут отправлять только "Праймтек"
-            prime_tech = Organization.objects.filter(is_prime_tech=True).first()
-            if prime_tech:
-                self.fields['recipient'].queryset = User.objects.filter(organization=prime_tech)
+        if self.user and self.user.organization:
+            if self.user.organization.is_prime_tech:
+                # PrimeTech users can see all users
+                self.fields['recipient'].queryset = User.objects.all()
+            else:
+                # Non-PrimeTech users can only see users from their own org and PrimeTech
+                prime_tech = Organization.objects.filter(is_prime_tech=True).first()
+                self.fields['recipient'].queryset = User.objects.filter(
+                    models.Q(organization=self.user.organization) |  # Users from same org
+                    models.Q(organization=prime_tech)  # Users from PrimeTech
+                )
 
     def clean(self):
         cleaned_data = super().clean()

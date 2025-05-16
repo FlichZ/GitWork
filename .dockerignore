@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Development and IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Database files
+*.sqlite3
+*.db
+
+# Log files
+logs/
+*.log
+
+# Media and static files (if using volume mapping)
+media/
+staticfiles/
+
+# Backup files
+*.bak
+*.sql
+*.dump
+
+# Docker-related
+.dockerignore
+docker-compose.override.yml
+
+# Documentation and README files
+README.md
+LICENSE
+docs/
+
+# Local development settings
+.env.local
+.env.development
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/ 
+ 

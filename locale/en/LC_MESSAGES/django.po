@@ -620,11 +620,11 @@ msgstr "Notifications"
 
 #: templates/base.html:10
 msgid "CSIS-Memo"
-msgstr "CSIS-Memo"
+msgstr "CSIS-DocFlow"
 
 #: templates/base.html:16
 msgid "Memo Tracker"
-msgstr "Memo Tracker"
+msgstr "DocFlow Guardian"
 
 #: templates/base.html:21 templates/base.html:28
 msgid "Home"

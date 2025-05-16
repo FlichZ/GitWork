@@ -504,7 +504,7 @@ msgstr "Документ успешно отправлен!"
 
 #: staffs/views.py:404
 msgid "Some documents have been marked as received."
-msgstr ""
+msgstr "Некоторые документы были отмечены как полученные."
 
 #: staffs/views.py:433
 msgid "You do not have permission to add users."
@@ -540,29 +540,29 @@ msgstr ""
 #, fuzzy
 #| msgid "User added successfully!"
 msgid "Field updated successfully."
-msgstr "Пользователь успешно добавлен!"
+msgstr "Поле успешно обновлено."
 
 #: staffs/views.py:597 staffs/views.py:621
 #, fuzzy
 #| msgid "No documents found."
 msgid "Document not found."
-msgstr "Документы не найдены."
+msgstr "Документ не найден."
 
 #: staffs/views.py:606
 msgid "Only PrimeTech organizations can change document status."
-msgstr ""
+msgstr "Только организации PrimeTech могут изменять статус документа."
 
 #: staffs/views.py:618
 #, fuzzy
 #| msgid "User added successfully!"
 msgid "Status updated successfully."
-msgstr "Пользователь успешно добавлен!"
+msgstr "Статус успешно обновлен."
 
 #: staffs/views.py:619
 #, fuzzy
 #| msgid "Old Status"
 msgid "Invalid status."
-msgstr "Старый статус"
+msgstr "Недопустимый статус."
 
 #: staffs/views.py:765 staffs/views.py:876
 msgid "Only admins can access this page."
@@ -616,11 +616,11 @@ msgstr "Уведомления не найдены."
 
 #: templates/base.html:10
 msgid "CSIS-Memo"
-msgstr "CSIS-Мемо"
+msgstr "CSIS-DocFlow"
 
 #: templates/base.html:16
 msgid "Memo Tracker"
-msgstr "Трекер документов"
+msgstr "DocFlow Guardian"
 
 #: templates/base.html:21 templates/base.html:28
 msgid "Home"
@@ -803,3 +803,134 @@ msgstr ""
 
 #~ msgid "Failed to convert DOCX to PDF for preview."
 #~ msgstr "Не удалось конвертировать DOCX в PDF для предпросмотра."
+# Document Statuses
+msgid "draft"
+msgstr "Черновик"
+
+msgid "sent"
+msgstr "Отправлен"
+
+msgid "received"
+msgstr "Получен"
+
+msgid "archived"
+msgstr "В архиве"
+
+# Document Status Actions
+msgid "Change Status"
+msgstr "Изменить статус"
+
+msgid "Status updated successfully."
+msgstr "Статус успешно обновлен."
+
+msgid "Invalid status."
+msgstr "Недопустимый статус."
+
+msgid "Only PrimeTech organizations can change document status."
+msgstr "Только организации PrimeTech могут изменять статус документа."
+
+# Document Fields
+msgid "Status"
+msgstr "Статус"
+
+msgid "Sender"
+msgstr "Отправитель"
+
+msgid "Recipient"
+msgstr "Получатель"
+
+msgid "Date Created"
+msgstr "Дата создания"
+
+msgid "Date Sent"
+msgstr "Дата отправки"
+
+msgid "Date Received"
+msgstr "Дата получения"
+
+msgid "Summary"
+msgstr "Краткое содержание"
+
+msgid "Page Count"
+msgstr "Количество страниц"
+
+msgid "Attachment"
+msgstr "Вложение"
+
+msgid "Note"
+msgstr "Примечание"
+
+# Document Actions
+msgid "View Details"
+msgstr "Просмотр деталей"
+
+msgid "Download"
+msgstr "Скачать"
+
+msgid "Delete"
+msgstr "Удалить"
+
+# Filter Options
+msgid "All Statuses"
+msgstr "Все статусы"
+
+msgid "Filter"
+msgstr "Фильтровать"
+
+msgid "Apply Filters"
+msgstr "Применить фильтры"
+
+msgid "Reset Filters"
+msgstr "Сбросить фильтры"
+
+# Sort Options
+msgid "Sort by Date"
+msgstr "Сортировать по дате"
+
+msgid "Sort by Status"
+msgstr "Сортировать по статусу"
+
+msgid "Ascending"
+msgstr "По возрастанию"
+
+msgid "Descending"
+msgstr "По убыванию"
+
+# Messages
+msgid "Some documents have been marked as received."
+msgstr "Некоторые документы были отмечены как полученные."
+
+msgid "Document not found."
+msgstr "Документ не найден."
+
+msgid "Field updated successfully."
+msgstr "Поле успешно обновлено."
+
+# Action Types
+msgid "Role Change"
+msgstr "Изменение роли"
+
+msgid "Send Document"
+msgstr "Отправка документа"
+
+msgid "Receive Document"
+msgstr "Получение документа"
+
+msgid "Change Document Status"
+msgstr "Изменение статуса документа"
+
+msgid "Delete Document"
+msgstr "Удаление документа"
+
+msgid "Update Document Field"
+msgstr "Обновление поля документа"
+
+msgid "Add User"
+msgstr "Добавление пользователя"
+
+msgid "View Document"
+msgstr "Просмотр документа"
+
+msgid "Add Organization"
+msgstr "Добавление организации"
+

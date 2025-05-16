@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block content %}
+<section class="text-gray-600 body-font">
+    <div class="container px-5 py-24 mx-auto">
+        <div class="flex flex-wrap items-center justify-between mb-12">
+            <div>
+                <h1 class="sm:text-3xl text-2xl font-medium title-font text-gray-900">{% trans "Edit Template" %}</h1>
+                <p class="text-indigo-500 mt-2">{{ template.name }}</p>
+            </div>
+            <div class="flex space-x-4">
+                <a href="{% url 'staffs:template_detail' template.id %}" class="text-gray-700 bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition">
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    {% trans "Back to Template" %}
+                </a>
+                <a href="{% url 'staffs:templates_list' %}" class="text-gray-700 bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition">
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                    </svg>
+                    {% trans "All Templates" %}
+                </a>
+            </div>
+        </div>
+        
+        <div class="max-w-3xl mx-auto">
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                <div class="p-6">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-6">
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Template Name" %} *</label>
+                            <input type="text" name="name" id="name" required value="{{ template.name }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <p class="mt-1 text-sm text-gray-500">{% trans "Enter a descriptive name for your template." %}</p>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label for="category" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Category" %} *</label>
+                            <select name="category" id="category" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                {% for cat_value, cat_name in categories %}
+                                <option value="{{ cat_value }}" {% if cat_value == template.category %}selected{% endif %}>{{ cat_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="mt-1 text-sm text-gray-500">{% trans "Select a category that best describes this template." %}</p>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Description" %}</label>
+                            <textarea name="description" id="description" rows="4"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">{{ template.description }}</textarea>
+                            <p class="mt-1 text-sm text-gray-500">{% trans "Provide a description of when and how to use this template." %}</p>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label for="template_file" class="block text-sm font-medium text-gray-700 mb-1">{% trans "Template File" %}</label>
+                            
+                            {% if template.template_file %}
+                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-3">
+                                <div class="flex items-center">
+                                    <svg class="w-8 h-8 text-indigo-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <div>
+                                        <p class="font-medium">{% trans "Current file" %}</p>
+                                        <p class="text-sm text-gray-500">{{ template.template_file.name }}</p>
+                                    </div>
+                                </div>
+                                <a href="{{ template.template_file.url }}" class="text-indigo-600 hover:text-indigo-800" target="_blank">
+                                    {% trans "View" %}
+                                </a>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="flex items-center justify-center w-full">
+                                <label class="flex flex-col w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <div class="flex flex-col items-center justify-center pt-7">
+                                        <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                        </svg>
+                                        <p class="pt-1 text-sm text-gray-400">{% trans "Drag and drop or click to select a new file" %}</p>
+                                        <p class="text-xs text-gray-400">{% trans "PDF, DOCX, XLSX, TXT" %}</p>
+                                    </div>
+                                    <input type="file" name="template_file" id="template_file" class="hidden">
+                                </label>
+                            </div>
+                            <p class="mt-1 text-sm text-gray-500">{% trans "Upload a new file to replace the current one (optional)." %}</p>
+                            <p id="file-name" class="mt-2 text-sm text-indigo-600 font-medium"></p>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <div class="flex items-center">
+                                <input type="checkbox" name="is_public" id="is_public" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" {% if template.is_public %}checked{% endif %}>
+                                <label for="is_public" class="ml-2 block text-sm text-gray-700">
+                                    {% trans "Make this template available to other organizations" %}
+                                </label>
+                            </div>
+                            <p class="mt-1 text-sm text-gray-500">{% trans "If checked, this template will be visible to users from other organizations." %}</p>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-4">
+                            <a href="{% url 'staffs:template_detail' template.id %}" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                {% trans "Cancel" %}
+                            </a>
+                            <button type="submit" class="px-4 py-2 bg-indigo-600 border border-transparent rounded-md text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                {% trans "Save Changes" %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+// Показываем имя выбранного файла
+document.getElementById('template_file').addEventListener('change', function(e) {
+    const fileName = e.target.files[0] ? e.target.files[0].name : '';
+    document.getElementById('file-name').textContent = fileName;
+});
+</script>
+{% endblock content %} 
+ 

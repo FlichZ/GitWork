@@ -1,0 +1,547 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block content %}
+<style>
+/* Стили для превью документов */
+.document-content {
+    font-family: inherit;
+    line-height: 1.5;
+    text-align: inherit;
+}
+
+.document-content h1, 
+.document-content h2, 
+.document-content h3, 
+.document-content h4, 
+.document-content h5, 
+.document-content h6 {
+    font-family: inherit;
+    margin-top: 0.8em;
+    margin-bottom: 0.4em;
+    page-break-after: avoid;
+    font-weight: bold;
+}
+
+.document-content h1 { font-size: 2em; }
+.document-content h2 { font-size: 1.75em; }
+.document-content h3 { font-size: 1.5em; }
+.document-content h4 { font-size: 1.25em; }
+.document-content h5 { font-size: 1.1em; }
+
+.document-content p {
+    margin-bottom: 0.5em;
+}
+
+.document-content a {
+    color: blue;
+    text-decoration: underline;
+}
+
+.document-content ul, 
+.document-content ol {
+    margin-left: 2em;
+    margin-bottom: 1em;
+}
+
+.document-content li {
+    margin-bottom: 0.25em;
+}
+
+.document-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+}
+
+.document-content table td,
+.document-content table th {
+    border: 1px solid #ccc;
+    padding: 8px;
+}
+
+.document-content table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.document-content blockquote {
+    margin: 1em 2em;
+    padding-left: 1em;
+    border-left: 4px solid #ccc;
+    font-style: italic;
+}
+
+.document-content img {
+    max-width: 100%;
+    height: auto;
+    margin: 1em auto;
+    display: block;
+}
+
+.document-content .page-break {
+    page-break-after: always;
+    margin-bottom: 1.5em;
+    border-bottom: 1px dashed #ccc;
+}
+
+/* Улучшение отображения изображений страниц */
+.image-gallery {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2em;
+}
+
+.image-gallery img {
+    width: 100%;
+    height: auto;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    transition: all 0.3s ease;
+}
+
+.image-gallery img:hover {
+    box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+}
+</style>
+
+<section class="text-gray-600 body-font">
+    <div class="container px-5 py-24 mx-auto">
+        <div class="flex flex-wrap items-center justify-between mb-12">
+            <div>
+                <h1 class="sm:text-3xl text-2xl font-medium title-font text-gray-900">{{ document.document_name }}</h1>
+                <p class="text-indigo-500 mt-2">{% trans "Versions History" %}</p>
+            </div>
+            <div class="flex space-x-4">
+                <a href="{% url 'staffs:document-detail' document.id %}" class="text-gray-700 bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition">
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    {% trans "Back to Document" %}
+                </a>
+                {% if can_add_version %}
+                <a href="{% url 'staffs:create_version' document.id %}" class="text-white bg-indigo-500 px-4 py-2 rounded hover:bg-indigo-600 transition">
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    {% trans "Create New Version" %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-lg font-semibold border-b pb-3 mb-4">{% trans "Document Information" %}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <p><span class="font-medium">{% trans "Name" %}:</span> {{ document.document_name }}</p>
+                    <p><span class="font-medium">{% trans "Description" %}:</span> {{ document.document_description|default:"-" }}</p>
+                    <p><span class="font-medium">{% trans "Status" %}:</span> 
+                        <span class="px-2 py-1 rounded-full text-xs 
+                            {% if document.status == 'draft' %}bg-gray-200 text-gray-700
+                            {% elif document.status == 'sent' %}bg-blue-200 text-blue-700
+                            {% elif document.status == 'received' %}bg-green-200 text-green-700
+                            {% elif document.status == 'archived' %}bg-yellow-200 text-yellow-700
+                            {% endif %}">
+                            {{ document.get_status_display }}
+                        </span>
+                    </p>
+                </div>
+                <div>
+                    <p><span class="font-medium">{% trans "Sender" %}:</span> {{ document.sender.user.username }}</p>
+                    <p><span class="font-medium">{% trans "Sender Organization" %}:</span> {{ document.sender_organization.name }}</p>
+                    <p><span class="font-medium">{% trans "Created Date" %}:</span> {{ document.date_created|date:"d.m.Y H:i" }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Версии документа -->
+        <div class="bg-white rounded-lg shadow-md">
+            <div class="px-6 py-4 border-b">
+                <h2 class="text-lg font-semibold">{% trans "Versions" %}</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Version" %}</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Created By" %}</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Date" %}</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Comment" %}</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Signatures" %}</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for version in versions %}
+                        <tr class="{% cycle 'bg-white' 'bg-gray-50' %}">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{% trans "Version" %} {{ version.version_number }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ version.created_by.username }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ version.created_at|date:"d.m.Y H:i" }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900">{{ version.comment|default:"-"|truncatechars:50 }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">{{ version.signatures.count }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div class="flex space-x-2">
+                                    <a href="{% url 'staffs:version_detail' document.id version.version_number %}" class="text-indigo-600 hover:text-indigo-900">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                    </a>
+                                    {% if version.content %}
+                                    <a href="{{ version.content.url }}" class="text-green-600 hover:text-green-900" target="_blank">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                        </svg>
+                                    </a>
+                                    {% endif %}
+                                    {% if can_add_version %}
+                                    <form method="post" action="{% url 'staffs:restore_version' document.id version.version_number %}" class="inline restore-version-form">
+                                        {% csrf_token %}
+                                        <button type="submit" class="text-blue-600 hover:text-blue-900 restore-version-btn" title="{% trans 'Restore this version' %}" data-version="{{ version.version_number }}">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                    <!-- Добавляем кнопку для выбора версии для сравнения -->
+                                    <button type="button" class="compare-version-btn text-purple-600 hover:text-purple-900" data-version="{{ version.version_number }}" title="{% trans 'Compare with other version' %}">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m-6 0h6"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                {% trans "No versions found." %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </div>
+</section>
+
+<!-- Добавим модальное окно для сравнения версий -->
+<div id="compareModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-11/12 h-5/6 max-w-6xl flex flex-col">
+        <div class="p-4 border-b flex justify-between items-center">
+            <h3 class="text-lg font-semibold">{% trans "Compare Versions" %}</h3>
+            <button type="button" id="closeCompareModal" class="text-gray-500 hover:text-gray-800">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="p-4 bg-gray-100 flex flex-wrap">
+            <div class="w-full md:w-1/2 p-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "First Version" %}</label>
+                <select id="firstVersionSelect" class="w-full bg-white border border-gray-300 rounded px-3 py-2">
+                    {% for version in versions %}
+                    <option value="{{ version.version_number }}">{% trans "Version" %} {{ version.version_number }} ({{ version.created_at|date:"d.m.Y" }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-full md:w-1/2 p-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">{% trans "Second Version" %}</label>
+                <select id="secondVersionSelect" class="w-full bg-white border border-gray-300 rounded px-3 py-2">
+                    {% for version in versions %}
+                    <option value="{{ version.version_number }}">{% trans "Version" %} {{ version.version_number }} ({{ version.created_at|date:"d.m.Y" }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-full p-2">
+                <button id="compareVersionsBtn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600">
+                    {% trans "Compare" %}
+                </button>
+            </div>
+        </div>
+        <div class="flex-grow overflow-auto flex">
+            <div id="firstVersion" class="w-1/2 p-4 border-r overflow-auto">
+                <h4 class="text-md font-semibold mb-4" id="firstVersionTitle">{% trans "Version" %} -</h4>
+                <div id="firstVersionContent" class="bg-white p-4 rounded-lg h-full overflow-auto"></div>
+            </div>
+            <div id="secondVersion" class="w-1/2 p-4 overflow-auto">
+                <h4 class="text-md font-semibold mb-4" id="secondVersionTitle">{% trans "Version" %} -</h4>
+                <div id="secondVersionContent" class="bg-white p-4 rounded-lg h-full overflow-auto"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для увеличенного просмотра изображения -->
+<div id="imageViewerModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 hidden">
+    <div class="relative w-11/12 h-5/6 max-w-6xl">
+        <button id="closeImageViewer" class="absolute top-2 right-2 text-white hover:text-gray-300 p-2 z-10">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+        <div class="bg-white rounded-lg h-full overflow-auto flex flex-col">
+            <div class="text-center py-2 bg-gray-100 border-b flex justify-between items-center px-4">
+                <button id="prevImage" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-l">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <h3 id="imageTitle" class="text-lg font-semibold">{% trans "Page" %} <span id="currentPage">1</span></h3>
+                <button id="nextImage" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-r">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="imageViewerContainer" class="flex-grow overflow-auto flex justify-center items-center p-4">
+                <img id="enlargedImage" class="max-w-full max-h-full object-contain" src="" alt="Enlarged preview">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript для работы с версиями -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Инициализация модальных окон
+    const compareModal = document.getElementById('compareModal');
+    const closeCompareModal = document.getElementById('closeCompareModal');
+    const compareVersionBtns = document.querySelectorAll('.compare-version-btn');
+    const firstVersionSelect = document.getElementById('firstVersionSelect');
+    const secondVersionSelect = document.getElementById('secondVersionSelect');
+    const compareVersionsBtn = document.getElementById('compareVersionsBtn');
+    const firstVersionContent = document.getElementById('firstVersionContent');
+    const secondVersionContent = document.getElementById('secondVersionContent');
+    const firstVersionTitle = document.getElementById('firstVersionTitle');
+    const secondVersionTitle = document.getElementById('secondVersionTitle');
+    
+    // Модальное окно просмотра изображений
+    const imageViewerModal = document.getElementById('imageViewerModal');
+    const enlargedImage = document.getElementById('enlargedImage');
+    const closeImageViewer = document.getElementById('closeImageViewer');
+    const prevImageBtn = document.getElementById('prevImage');
+    const nextImageBtn = document.getElementById('nextImage');
+    const currentPageElement = document.getElementById('currentPage');
+    
+    let currentImages = [];
+    let currentImageIndex = 0;
+    
+    // Обработка кнопок восстановления версии
+    const restoreVersionForms = document.querySelectorAll('.restore-version-form');
+    restoreVersionForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const versionNumber = this.querySelector('.restore-version-btn').getAttribute('data-version');
+            const message = "{% trans 'Are you sure you want to restore this version?' %}";
+            if (!confirm(message)) {
+                e.preventDefault();
+            }
+        });
+    });
+
+    // Открытие модального окна и установка версий
+    compareVersionBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const selectedVersion = this.getAttribute('data-version');
+            firstVersionSelect.value = selectedVersion;
+            
+            // Выбираем другую версию для сравнения (предыдущую или следующую)
+            const allVersions = Array.from(secondVersionSelect.options).map(opt => opt.value);
+            const currentIndex = allVersions.indexOf(selectedVersion);
+            
+            // Если это не последняя версия, выбираем следующую, иначе предыдущую
+            const otherVersionIndex = currentIndex < allVersions.length - 1 ? currentIndex + 1 : currentIndex - 1;
+            if (otherVersionIndex >= 0) {
+                secondVersionSelect.value = allVersions[otherVersionIndex];
+            }
+            
+            compareModal.classList.remove('hidden');
+            loadVersionContents();
+        });
+    });
+
+    // Загрузка содержимого версий
+    function loadVersionContents() {
+        const firstVersion = firstVersionSelect.value;
+        const secondVersion = secondVersionSelect.value;
+        
+        if (firstVersion === secondVersion) {
+            alert("{% trans 'Please select different versions to compare' %}");
+            return;
+        }
+        
+        firstVersionTitle.textContent = "{% trans 'Version' %} " + firstVersion;
+        secondVersionTitle.textContent = "{% trans 'Version' %} " + secondVersion;
+        
+        // Показываем индикаторы загрузки
+        firstVersionContent.innerHTML = '<div class="flex justify-center items-center h-40"><svg class="animate-spin h-8 w-8 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>';
+        secondVersionContent.innerHTML = '<div class="flex justify-center items-center h-40"><svg class="animate-spin h-8 w-8 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>';
+        
+        // Загрузка первой версии
+        loadVersionContent(firstVersion, firstVersionContent);
+        
+        // Загрузка второй версии
+        loadVersionContent(secondVersion, secondVersionContent);
+    }
+    
+    // Функция для загрузки содержимого одной версии
+    function loadVersionContent(versionNumber, targetElement) {
+        fetch("/staff/document/{{ document.id }}/version/" + versionNumber + "/preview/")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Сетевая ошибка: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    targetElement.innerHTML = '';
+                    if (data.html_content) {
+                        targetElement.innerHTML = data.html_content;
+                    } else if (data.images && data.images.length > 0) {
+                        // Создаем галерею изображений с возможностью увеличения
+                        const gallery = document.createElement('div');
+                        gallery.className = 'image-gallery grid grid-cols-1 gap-4';
+                        
+                        data.images.forEach((imgBase64, index) => {
+                            const imgContainer = document.createElement('div');
+                            imgContainer.className = 'border rounded overflow-hidden relative';
+                            
+                            const img = document.createElement('img');
+                            img.src = "data:image/png;base64," + imgBase64;
+                            img.className = 'w-full cursor-pointer';
+                            img.dataset.index = index;
+                            img.dataset.version = versionNumber;
+                            
+                            const pageLabel = document.createElement('div');
+                            pageLabel.className = 'absolute top-0 left-0 bg-black bg-opacity-50 text-white text-sm px-2 py-1';
+                            pageLabel.textContent = `{% trans "Page" %} ${index + 1}`;
+                            
+                            const zoomButton = document.createElement('button');
+                            zoomButton.className = 'absolute bottom-2 right-2 bg-indigo-500 text-white p-2 rounded-full hover:bg-indigo-600';
+                            zoomButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path></svg>';
+                            zoomButton.title = "{% trans 'View larger' %}";
+                            
+                            // Добавляем обработчики для открытия увеличенного изображения
+                            img.addEventListener('click', function() {
+                                openImageViewer(data.images, parseInt(this.dataset.index));
+                            });
+                            
+                            zoomButton.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                const index = parseInt(this.parentNode.querySelector('img').dataset.index);
+                                openImageViewer(data.images, index);
+                            });
+                            
+                            imgContainer.appendChild(img);
+                            imgContainer.appendChild(pageLabel);
+                            imgContainer.appendChild(zoomButton);
+                            gallery.appendChild(imgContainer);
+                        });
+                        
+                        targetElement.appendChild(gallery);
+                    } else if (data.text_content) {
+                        targetElement.textContent = data.text_content;
+                    } else {
+                        targetElement.textContent = "{% trans 'No preview available' %}";
+                    }
+                } else {
+                    targetElement.textContent = data.message || "{% trans 'Error loading content' %}";
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                targetElement.textContent = "{% trans 'Error' %}: " + error.message;
+            });
+    }
+    
+    // Функция для открытия просмотрщика изображений
+    function openImageViewer(images, index) {
+        currentImages = images;
+        currentImageIndex = index;
+        updateImageViewer();
+        imageViewerModal.classList.remove('hidden');
+    }
+    
+    // Обновляет просмотрщик изображений
+    function updateImageViewer() {
+        enlargedImage.src = "data:image/png;base64," + currentImages[currentImageIndex];
+        currentPageElement.textContent = (currentImageIndex + 1);
+        prevImageBtn.disabled = currentImageIndex === 0;
+        nextImageBtn.disabled = currentImageIndex === currentImages.length - 1;
+        prevImageBtn.classList.toggle('opacity-50', currentImageIndex === 0);
+        nextImageBtn.classList.toggle('opacity-50', currentImageIndex === currentImages.length - 1);
+    }
+    
+    // Обработчики для кнопок просмотрщика изображений
+    prevImageBtn.addEventListener('click', function() {
+        if (currentImageIndex > 0) {
+            currentImageIndex--;
+            updateImageViewer();
+        }
+    });
+    
+    nextImageBtn.addEventListener('click', function() {
+        if (currentImageIndex < currentImages.length - 1) {
+            currentImageIndex++;
+            updateImageViewer();
+        }
+    });
+    
+    closeImageViewer.addEventListener('click', function() {
+        imageViewerModal.classList.add('hidden');
+    });
+    
+    // Закрытие по клику вне изображения
+    imageViewerModal.addEventListener('click', function(e) {
+        if (e.target === imageViewerModal) {
+            imageViewerModal.classList.add('hidden');
+        }
+    });
+
+    // Кнопка сравнения версий
+    compareVersionsBtn.addEventListener('click', loadVersionContents);
+
+    // Закрытие модального окна
+    closeCompareModal.addEventListener('click', function() {
+        compareModal.classList.add('hidden');
+    });
+
+    // Закрытие по клику вне окна
+    compareModal.addEventListener('click', function(e) {
+        if (e.target === compareModal) {
+            compareModal.classList.add('hidden');
+        }
+    });
+    
+    // Поддержка навигации с клавиатуры в просмотрщике изображений
+    document.addEventListener('keydown', function(e) {
+        if (imageViewerModal.classList.contains('hidden')) return;
+        
+        if (e.key === 'ArrowLeft' && currentImageIndex > 0) {
+            currentImageIndex--;
+            updateImageViewer();
+        } else if (e.key === 'ArrowRight' && currentImageIndex < currentImages.length - 1) {
+            currentImageIndex++;
+            updateImageViewer();
+        } else if (e.key === 'Escape') {
+            imageViewerModal.classList.add('hidden');
+        }
+    });
+});
+</script>
+{% endblock content %} 
+ 

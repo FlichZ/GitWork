@@ -7,8 +7,186 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{% static 'css/output.css' %}">
-    <title>{% block title %}{% trans "CSIS-Memo" %}{% endblock %}</title>
+    <title>{% block title %}{% trans "CSIS-DocFlow" %}{% endblock %}</title>
     <style>
+        /* Add smooth scrolling and better font rendering */
+        html {
+            scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Modern gradient background */
+        body {
+            background: linear-gradient(to right, #f8f9fa, #ffffff);
+        }
+
+        /* Improved header design */
+        .modern-header {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 0.75rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        /* Navigation item styles */
+        .nav-item {
+            position: relative;
+            transition: all 0.3s ease;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            border-radius: 0.5rem;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px) scale(1.02);
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-item.active {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-weight: 600;
+        }
+
+        .nav-item svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            transition: all 0.3s ease;
+            opacity: 0.9;
+        }
+
+        .nav-item:hover svg {
+            transform: scale(1.1);
+            opacity: 1;
+        }
+
+        .nav-divider {
+            width: 1px;
+            height: 2rem;
+            background-color: rgba(255, 255, 255, 0.2);
+            margin: 0 0.25rem;
+        }
+
+        .nav-group {
+            display: flex;
+            align-items: center;
+            padding: 0.25rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            margin: 0 0.25rem;
+        }
+
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #ffffff, #e2e8f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.025em;
+        }
+
+        /* Dropdown menu styles */
+        .dropdown-menu {
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            right: 0;
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            min-width: 12rem;
+            z-index: 50;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(8px);
+            display: none;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+            animation: dropdownFade 0.2s ease;
+        }
+
+        @keyframes dropdownFade {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .dropdown-menu::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            right: 1.5rem;
+            width: 12px;
+            height: 12px;
+            background: white;
+            transform: rotate(45deg);
+            border-left: 1px solid rgba(0, 0, 0, 0.1);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .dropdown-menu a {
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #374151;
+            transition: all 0.2s ease;
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .dropdown-menu a:first-child {
+            border-top-left-radius: 0.75rem;
+            border-top-right-radius: 0.75rem;
+        }
+
+        .dropdown-menu a:last-child {
+            border-bottom-left-radius: 0.75rem;
+            border-bottom-right-radius: 0.75rem;
+        }
+
+        .dropdown-menu a:hover {
+            background-color: #f3f4f6;
+            color: #2563eb;
+        }
+
+        .dropdown-menu a:active {
+            background-color: #e5e7eb;
+        }
+
+        .dropdown-menu a + a {
+            border-top: 1px solid #f3f4f6;
+        }
+
+        /* Button hover effects */
+        .button-hover {
+            transition: all 0.3s ease;
+        }
+
+        .button-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
         /* Стили для иконки чата */
         .chat-icon {
             position: fixed;
@@ -145,166 +323,385 @@
             font-size: 0.8em;
             color: #666;
         }
+
+        /* Modal styles */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.3);
+            z-index: 40;
+        }
+
+        .modal-menu {
+            display: none;
+            position: absolute;
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            min-width: 12rem;
+            z-index: 50;
+        }
+
+        .modal-menu.active {
+            display: block;
+        }
+
+        .modal-backdrop.active {
+            display: block;
+        }
+
+        .modal-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: #374151;
+            transition: all 0.2s ease;
+        }
+
+        .modal-menu-item:hover {
+            background-color: #f3f4f6;
+            color: #2563eb;
+        }
+
+        .modal-menu-item:first-child {
+            border-top-left-radius: 0.75rem;
+            border-top-right-radius: 0.75rem;
+        }
+
+        .modal-menu-item:last-child {
+            border-bottom-left-radius: 0.75rem;
+            border-bottom-right-radius: 0.75rem;
+        }
+
+        .modal-menu-item + .modal-menu-item {
+            border-top: 1px solid #f3f4f6;
+        }
+
+        /* Auth button styles */
+        .auth-button {
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            text-decoration: none;
+        }
+
+        .auth-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-button svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            opacity: 0.9;
+            transition: all 0.3s ease;
+        }
+
+        .auth-button:hover svg {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* User menu styles */
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 0.5rem;
+            padding-left: 0.5rem;
+            border-left: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Language switcher styles */
+        .language-switcher {
+            position: relative;
+            margin-left: 0.5rem;
+        }
+
+        .language-button {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            color: white;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .language-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .language-button img {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .language-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            min-width: 120px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .language-dropdown.show {
+            display: block;
+            animation: dropdownFade 0.2s ease;
+        }
+
+        .language-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #374151;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .language-option:hover {
+            background: #f3f4f6;
+        }
+
+        .language-option img {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .language-option.active {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+        
+        /* Дополнительные отступы для русского языка */
+        @media (min-width: 768px) {
+            .ru-header {
+                margin-left: 1rem !important;
+                padding-left: 1rem !important;
+                transform: translateX(0);
+            }
+            
+            /* Адаптация элементов навигации для русского языка */
+            html[lang="ru"] .nav-item {
+                padding: 0.5rem 0.5rem;
+                font-size: 0.8rem;
+            }
+            
+            html[lang="ru"] .nav-group {
+                padding: 0.25rem 0.15rem;
+                margin: 0 0.15rem;
+            }
+            
+            html[lang="ru"] .nav-divider {
+                margin: 0 0.15rem;
+            }
+        }
     </style>
 </head>
-<body>
-<header class="text-gray-600 body-font min-h-16 z-1">
-  <div class="container mx-auto flex p-5 flex-col md:flex-row md:flex-nowrap items-center">
-    <a class="flex title-font font-medium items-center text-gray-900 mb-4 md:mb-0">
-      <span class="ml-3 text-xl">{% trans "Memo Tracker" %}</span>
+<body class="font-sans">
+<header class="modern-header">
+    <div class="container mx-auto px-2 {% if LANGUAGE_CODE != 'en' %}ru-header{% endif %}" style="{% if LANGUAGE_CODE == 'en' %}padding-left: 1rem; margin-left: 0.5rem;{% else %}padding-left: 2rem; margin-left: 1rem;{% endif %}">
+        <div class="flex items-center justify-between">
+            <a href="{% url 'landing-page' %}" class="flex items-center space-x-2">
+                <span class="logo-text">{% trans "DocFlow Guardian" %}</span>
     </a>
-    <nav class="md:mr-auto md:ml-4 md:py-1 md:pl-4 md:border-l md:border-gray-400 flex flex-wrap items-center text-base justify-center">
+            
+            <div class="flex items-center">
+                <nav class="flex items-center">
+                    <div class="nav-group">
         {% if not request.user.is_authenticated %}
-      <a href="{% url 'landing-page' %}" class="mr-5 hover:text-gray-900 flex items-center">
-          {% trans "Home" %}
-          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <a href="{% url 'landing-page' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
           </svg>
+                            <span>{% trans "Home" %}</span>
       </a>
         {% else %}
-      <a href="{% url 'select-send-or-receive' %}" class="mr-5 hover:text-gray-900 flex items-center">
-          {% trans "Home" %}
-          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <a href="{% url 'select-send-or-receive' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
           </svg>
+                            <span>{% trans "Home" %}</span>
       </a>
         {% endif %}
 
-      <!-- Выпадающее меню "Documents" -->
-      <div class="relative mr-5 dropdown">
-          <button class="flex items-center hover:text-gray-900 focus:outline-none dropdown-toggle">
-              {% trans "Documents" %}
-              <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        <div class="nav-divider"></div>
+
+                        <a href="{% url 'staffs:send-document' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18l9-2zm0 0v-8"></path>
               </svg>
-          </button>
-          <div class="absolute dropdown-menu bg-white shadow-lg rounded-md mt-2 z-50 w-48" hidden>
-              <a href="{% url 'staffs:send-document' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
-                  {% trans "Send Documents" %}
-                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                  </svg>
-              </a>
-              <a href="{% url 'staffs:receive-document' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
-                  {% trans "Receive Documents" %}
-                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <span>{% trans "Send" %}</span>
+                        </a>
+
+                        <a href="{% url 'staffs:receive-document' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5l-9 2 9 18 9-18-9-2zm0 0v8"></path>
                   </svg>
+                            <span>{% trans "Receive" %}</span>
               </a>
-              {% if request.user.organization.is_prime_tech  %}
-              <a href="{% url 'staffs:document_log' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
-                  {% trans "Documents log" %}
-                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5l-9 2 9 18 9-18-9-2zm0 0v8"></path>
-                  </svg>
-              </a>
-              {% endif %}
-          </div>
       </div>
 
-      <a href="{% url 'staffs:dashboard' %}" class="mr-5 hover:text-gray-900 flex items-center">
-          {% trans "Dashboard" %}
-          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <div class="nav-divider"></div>
+
+                    <div class="nav-group">
+                        <a href="{% url 'staffs:dashboard' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
           </svg>
-      </a>
-      <a href="{% url 'staffs:notifications' %}" class="mr-5 hover:text-gray-900 flex items-center">
-          {% trans "Notifications" %}
-          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-          </svg>
-      </a>
+                            <span>{% trans "Dashboard" %}</span>
+                        </a>
 
-      <!-- Выпадающее меню "Logs" -->
-      {% if request.user.organization.is_prime_tech  %}
-      <div class="relative mr-5 dropdown">
-          <button class="flex items-center hover:text-gray-900 focus:outline-none dropdown-toggle">
-              {% trans "Logs" %}
-              <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        <a href="{% url 'staffs:templates_list' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path>
+          </svg>
+                            <span>{% trans "Templates" %}</span>
+                        </a>
+
+                        <a href="{% url 'staffs:notifications' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
               </svg>
-          </button>
-          <div class="absolute dropdown-menu bg-white shadow-lg rounded-md mt-2 z-50 w-48" hidden>
+                            <span>{% trans "Notifications" %}</span>
+                        </a>
+                    </div>
+
               {% if request.user.organization.is_prime_tech %}
-              <a href="{% url 'staffs:status_log_console' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
-                  {% trans "Status Log Console" %}
-                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-6 4h6m-6 4h6"></path>
+                    <div class="nav-divider"></div>
+
+                    <div class="nav-group">
+                        <a href="{% url 'staffs:document_log' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                   </svg>
+                            <span>{% trans "Documents Log" %}</span>
               </a>
-              {% endif %}
+
+                        <a href="{% url 'staffs:status_log_console' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span>{% trans "Status Log" %}</span>
+                        </a>
+
               {% if request.user.role == 'admin' %}
-              <a href="{% url 'staffs:user_action_log' %}" class="block px-4 py-2 hover:bg-gray-100 flex items-center">
-                  {% trans "User Action Log" %}
-                  <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <a href="{% url 'staffs:user_action_log' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-6 4h6m-6 4h6"></path>
                   </svg>
+                            <span>{% trans "User Log" %}</span>
               </a>
               {% endif %}
-          </div>
       </div>
       {% endif %}
 
       {% if request.user.is_authenticated and request.user.role == 'admin' %}
-      <a href="{% url 'staffs:user_management' %}" class="mr-5 hover:text-gray-900 flex items-center">
-          {% trans "User Management" %}
-          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M8.5 3a4 4 0 100 8 4 4 0 000-8z"></path>
-          </svg>
-      </a>
-      {% endif %}
+                    <div class="nav-divider"></div>
 
-      {% if user.role == 'admin' %}
-        <div class="mt-4 text-center">
-            <a href="{% url 'staffs:backup_management' %}" class="text-indigo-500 inline-flex items-center">
-                {% trans "Go to Backup Management" %}
-                <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
-                    <path d="M9 5l7 7-7 7"></path>
+                    <div class="nav-group">
+                        <a href="{% url 'staffs:user_management' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+          </svg>
+                            <span>{% trans "Users" %}</span>
+                        </a>
+
+                        <a href="{% url 'staffs:backup_management' %}" class="nav-item">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
                 </svg>
+                            <span>{% trans "Backup" %}</span>
             </a>
         </div>
 {% endif %}
-    </nav>
 
-    <!-- Переключатель языка в шапке -->
-    <form action="{% url 'set_language' %}" method="post" class="inline-flex items-center">
+                    <!-- Language Switcher -->
+                    <div class="language-switcher">
+                        <div class="language-button" onclick="toggleLanguageDropdown()">
+                            <span class="text-xl">{% if LANGUAGE_CODE == 'en' %}🇬🇧{% else %}🇷🇺{% endif %}</span>
+                            <span>{{ LANGUAGE_CODE|upper }}</span>
+                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                        <form id="language-form" action="{% url 'set_language' %}" method="post">
         {% csrf_token %}
-        <select name="language" onchange="this.form.submit()" class="mr-3 inline-flex bg-gray-100 border-0 py-1 px-3 rounded text-base focus:outline-none hover:bg-gray-200">
-            {% get_current_language as LANGUAGE_CODE %}
+                            <input name="next" type="hidden" value="{{ request.path }}">
+                            <div class="language-dropdown" id="languageDropdown">
             {% get_available_languages as LANGUAGES %}
-            {% for lang in LANGUAGES %}
-                <option value="{{ lang.0 }}" {% if lang.0 == LANGUAGE_CODE %}selected{% endif %}>
-                    {{ lang.1 }}
-                </option>
+                                {% for code, name in LANGUAGES %}
+                                    <button type="submit" name="language" value="{{ code }}" 
+                                            class="language-option {% if LANGUAGE_CODE == code %}active{% endif %}">
+                                        <span class="text-xl">{% if code == 'en' %}🇬🇧{% else %}🇷🇺{% endif %}</span>
+                                        <span>{{ name }}</span>
+                                    </button>
             {% endfor %}
-        </select>
+                            </div>
     </form>
+                    </div>
+                </nav>
 
+                <div class="user-menu">
     {% if request.user.is_authenticated %}
-       {% if request.user.can_add_user %}
-      <a href="{% url 'staffs:add-user' %}" class="mr-5 inline-flex items-center bg-gray-100 border-0 py-1 px-3 focus:outline-none hover:bg-gray-200 rounded text-gray-700 mt-4 md:mt-0">{% trans "Add User" %}
-        <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-1" viewBox="0 0 24 24">
-          <path d="M5 12h14M12 5l7 7-7 7"></path>
+                        {% if request.user.role == 'admin' %}
+                        <a href="{% url 'staffs:add-user' %}" class="auth-button">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
         </svg>
+                            <span>{% trans "Add User" %}</span>
       </a>
       {% endif %}
-
-      <form method="post" action="{% url 'logout' %}">
+                        <form method="post" action="{% url 'logout' %}" class="m-0">
         {% csrf_token %}
-        <button type="submit" class="inline-flex items-center bg-gray-100 border-0 py-1 px-3 focus:outline-none hover:bg-gray-200 rounded text-gray-700 mt-4 md:mt-0">
-            {% trans "Log Out" %}
-            <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-1" viewBox="0 0 24 24">
-                <path d="M5 12h14M12 5l7 7-7 7"></path>
+                            <button type="submit" class="auth-button">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
             </svg>
+                                <span>{% trans "Logout" %}</span>
         </button>
       </form>
     {% else %}
-      <a href="{% url 'login' %}" class="inline-flex items-center bg-gray-100 border-0 py-1 px-3 focus:outline-none hover:bg-gray-200 rounded text-gray-700 mt-4 md:mt-0">{% trans "Login" %}
-        <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-1" viewBox="0 0 24 24">
-          <path d="M5 12h14M12 5l7 7-7 7"></path>
+                        <a href="{% url 'login' %}" class="auth-button">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
         </svg>
+                            <span>{% trans "Login" %}</span>
       </a>
     {% endif %}
+                </div>
+            </div>
+        </div>
   </div>
 </header>
 
@@ -337,7 +734,7 @@
         <!-- Отправить документ -->
         <div class="w-full md:w-1/2 px-4 mb-8">
             <div class="text-center">
-                <img src="{% static 'images/send-document.png' %}" alt="Send Document" class="mx-auto mb-4">
+                <img src="{% static 'images/send-document.png' %}" alt="{% trans 'Send Document' %}" class="mx-auto mb-4">
                 <h2 class="text-xl font-semibold mb-2">{% trans "Send Document" %}</h2>
                 <p class="text-gray-600 mb-4">
                     {% trans "Register documents sent by users within and outside CSIS. When sending documents to users within CSIS, it is recommended to register the document in the system." %}
@@ -351,7 +748,7 @@
         <!-- Получить документ -->
         <div class="w-full md:w-1/2 px-4 mb-8">
             <div class="text-center">
-                <img src="{% static 'images/receive-document.png' %}" alt="Receive Document" class="mx-auto mb-4">
+                <img src="{% static 'images/receive-document.png' %}" alt="{% trans 'Receive Document' %}" class="mx-auto mb-4">
                 <h2 class="text-xl font-semibold mb-2">{% trans "Receive Document" %}</h2>
                 <p class="text-gray-600 mb-4">
                     {% trans "Register documents received from sources and users outside CSIS. When receiving documents from users within CSIS, it is recommended that the document be sent as completed." %}
@@ -368,7 +765,7 @@
 
 {% if request.user.is_authenticated %}
 <!-- Иконка чата -->
-<div class="chat-icon" onclick="toggleChat()">💬</div>
+<div class="chat-icon" onclick="toggleChat()">{% trans "💬" %}</div>
 
 <!-- Окно чата в стиле Telegram -->
 <div class="chat-modal" style="display: none" id="chatModal">
@@ -378,7 +775,7 @@
     <div class="chat-main">
         <div class="chat-header" id="chatHeader">
             <span id="chatTitle">{% trans "Select a chat" %}</span>
-            <button onclick="toggleChat()" style="color: white;">✕</button>
+            <button onclick="toggleChat()" style="color: white;">{% trans "✕" %}</button>
         </div>
         <div class="chat-body" id="chatBody">
             <!-- Сообщения будут загружены через JavaScript -->
@@ -390,8 +787,75 @@
     </div>
 </div>
 {% endif %}
-<script src="{% static 'js/dropdown.js' %}"></script>
+
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropdowns = document.querySelectorAll('[data-dropdown]');
+        
+        dropdowns.forEach(dropdown => {
+            const button = dropdown.querySelector('[data-dropdown-toggle]');
+            const menu = dropdown.querySelector('[data-dropdown-menu]');
+            
+            if (!button || !menu) return;
+            
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Close all other dropdowns
+                dropdowns.forEach(otherDropdown => {
+                    if (otherDropdown !== dropdown) {
+                        otherDropdown.querySelector('[data-dropdown-menu]')?.classList.remove('show');
+                    }
+                });
+                
+                // Toggle current dropdown
+                menu.classList.toggle('show');
+                
+                // Log for debugging
+                console.log('Dropdown clicked:', menu.classList.contains('show'));
+            });
+        });
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('[data-dropdown]')) {
+                document.querySelectorAll('[data-dropdown-menu]').forEach(menu => {
+                    menu.classList.remove('show');
+                });
+            }
+        });
+        
+        // Close dropdowns on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('[data-dropdown-menu]').forEach(menu => {
+                    menu.classList.remove('show');
+                });
+            }
+        });
+
+        // Add smooth scroll behavior to all anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Add active state to current navigation item
+        const currentPath = window.location.pathname;
+        document.querySelectorAll('nav a').forEach(link => {
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('text-blue-100');
+                link.classList.add('font-semibold');
+            }
+        });
+    });
+
+    // Chat functionality
     let currentChatId = null;
     let ws = null;
 
@@ -407,7 +871,7 @@
     }
 
     function loadChats() {
-        const isAuthenticated = {{ request.user.is_authenticated|lower }};
+        const isAuthenticated = "{{ request.user.is_authenticated|lower }}";
         const sidebar = document.getElementById('chatSidebar');
         sidebar.innerHTML = '';
 
@@ -415,7 +879,7 @@
             fetch('{% url "staffs:get_chats" %}')
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('Network response was not ok');
+                        throw new Error('{% trans "Network response was not ok" %}');
                     }
                     return response.json();
                 })
@@ -431,20 +895,20 @@
                                 chatItem.setAttribute('data-chat-id', chat.id);
                                 chatItem.innerHTML = `
                                     <span class="chat-name">${chat.name}</span>
-                                    <span class="last-message">${chat.last_message || 'No messages'}</span>
+                                    <span class="last-message">${chat.last_message || '{% trans "No messages" %}'}</span>
                                 `;
                                 chatItem.onclick = () => selectChat(chat.id, chat.name);
                                 sidebar.appendChild(chatItem);
                             });
                         }
                     } else {
-                        console.error('Error loading chats:', data.message);
-                        sidebar.innerHTML = '<div class="p-4 text-red-600">Error: ' + data.message + '</div>';
+                        console.error('{% trans "Error loading chats" %}:', data.message);
+                        sidebar.innerHTML = '<div class="p-4 text-red-600">{% trans "Error" %}: ' + data.message + '</div>';
                     }
                 })
                 .catch(error => {
-                    console.error('Fetch error:', error);
-                    sidebar.innerHTML = '<div class="p-4 text-red-600">Error loading chats</div>';
+                    console.error('{% trans "Fetch error" %}:', error);
+                    sidebar.innerHTML = '<div class="p-4 text-red-600">{% trans "Error loading chats" %}</div>';
                 });
         } else {
             fetch('{% url "staffs:get_support_chat" %}')
@@ -458,18 +922,18 @@
                         chatItem.setAttribute('data-chat-id', chat.id);
                         chatItem.innerHTML = `
                             <span class="chat-name">${chat.name}</span>
-                            <span class="last-message">${chat.last_message || 'No messages'}</span>
+                            <span class="last-message">${chat.last_message || '{% trans "No messages" %}'}</span>
                         `;
                         chatItem.onclick = () => selectChat(chat.id, chat.name, true);
                         sidebar.appendChild(chatItem);
                     } else {
-                        console.error('Error loading support chat:', data.message);
-                        sidebar.innerHTML = '<div class="p-4 text-red-600">Error: ' + data.message + '</div>';
+                        console.error('{% trans "Error loading support chat" %}:', data.message);
+                        sidebar.innerHTML = '<div class="p-4 text-red-600">{% trans "Error" %}: ' + data.message + '</div>';
                     }
                 })
                 .catch(error => {
-                    console.error('Fetch error:', error);
-                    sidebar.innerHTML = '<div class="p-4 text-red-600">Error loading support chat</div>';
+                    console.error('{% trans "Fetch error" %}:', error);
+                    sidebar.innerHTML = '<div class="p-4 text-red-600">{% trans "Error loading support chat" %}</div>';
                 });
         }
     }
@@ -495,7 +959,7 @@
         fetch(url)
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Network response was not ok: ' + response.status);
+                    throw new Error('{% trans "Network response was not ok" %}: ' + response.status);
                 }
                 return response.json();
             })
@@ -519,14 +983,14 @@
                     }
                     chatBody.scrollTop = chatBody.scrollHeight;
                 } else {
-                    console.error('Error loading messages:', data.message);
-                    chatBody.innerHTML = '<div class="p-4 text-red-600">Error: ' + data.message + '</div>';
+                    console.error('{% trans "Error loading messages" %}:', data.message);
+                    chatBody.innerHTML = '<div class="p-4 text-red-600">{% trans "Error" %}: ' + data.message + '</div>';
                 }
             })
             .catch(error => {
-                console.error('Fetch error:', error);
+                console.error('{% trans "Fetch error" %}:', error);
                 const chatBody = document.getElementById('chatBody');
-                chatBody.innerHTML = '<div class="p-4 text-red-600">Error loading messages: ' + error.message + '</div>';
+                chatBody.innerHTML = '<div class="p-4 text-red-600">{% trans "Error loading messages" %}: ' + error.message + '</div>';
             });
 
         currentChatId = chatId;
@@ -556,13 +1020,13 @@
         ws.onclose = function(event) {
             console.log('WebSocket connection closed:', event);
             const chatBody = document.getElementById('chatBody');
-            chatBody.innerHTML += '<div class="p-4 text-red-600">WebSocket connection closed</div>';
+            chatBody.innerHTML += '<div class="p-4 text-red-600">{% trans "WebSocket connection closed" %}</div>';
         };
 
         ws.onerror = function(error) {
             console.error('WebSocket error:', error);
             const chatBody = document.getElementById('chatBody');
-            chatBody.innerHTML += '<div class="p-4 text-red-600">WebSocket error occurred</div>';
+            chatBody.innerHTML += '<div class="p-4 text-red-600">{% trans "WebSocket error occurred" %}</div>';
         };
     }
 
@@ -585,7 +1049,7 @@
         } else {
             console.error('Cannot send message: WebSocket is not connected or message is empty');
             const chatBody = document.getElementById('chatBody');
-            {#chatBody.innerHTML += '<div class="p-4 text-red-600">Cannot send message: WebSocket is not connected</div>';#}
+            // chatBody.innerHTML += '<div class="p-4 text-red-600">Cannot send message: WebSocket is not connected</div>';
         }
     }
 
@@ -595,6 +1059,72 @@
             sendMessage();
         }
     });
+
+    function toggleMenu(menuId, button) {
+        // Close all other menus first
+        document.querySelectorAll('.modal-menu').forEach(menu => {
+            if (menu.id !== menuId) {
+                menu.classList.remove('active');
+            }
+        });
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+            if (backdrop.id !== menuId + 'Backdrop') {
+                backdrop.classList.remove('active');
+            }
+        });
+
+        // Toggle current menu
+        const menu = document.getElementById(menuId);
+        const backdrop = document.getElementById(menuId + 'Backdrop');
+        
+        if (menu && backdrop) {
+            menu.classList.toggle('active');
+            backdrop.classList.toggle('active');
+            
+            if (menu.classList.contains('active')) {
+                // Position the menu below the button
+                const rect = button.getBoundingClientRect();
+                menu.style.top = rect.bottom + 8 + 'px';
+                menu.style.left = rect.left + 'px';
+                
+                // Close menu when clicking outside
+                const closeMenu = (e) => {
+                    if (!menu.contains(e.target) && e.target !== button) {
+                        menu.classList.remove('active');
+                        backdrop.classList.remove('active');
+                        document.removeEventListener('click', closeMenu);
+                    }
+                };
+                
+                // Add event listener with a slight delay to avoid immediate triggering
+                setTimeout(() => {
+                    document.addEventListener('click', closeMenu);
+                }, 0);
+            }
+        }
+    }
+
+    // Close menus on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-menu, .modal-backdrop').forEach(el => {
+                el.classList.remove('active');
+            });
+        }
+    });
+
+    function toggleLanguageDropdown() {
+        const dropdown = document.getElementById('languageDropdown');
+        dropdown.classList.toggle('show');
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const languageSwitcher = document.querySelector('.language-switcher');
+            if (!languageSwitcher.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+    }
 </script>
 </body>
 </html>

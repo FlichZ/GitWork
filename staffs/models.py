@@ -56,6 +56,36 @@ class UserProfile(models.Model):
         return f"Profile of {self.user.username}"
 
 
+class DocumentTemplate(models.Model):
+    TEMPLATE_CATEGORIES = (
+        ('contract', 'Договор'),
+        ('memo', 'Служебная записка'),
+        ('invoice', 'Счет'),
+        ('report', 'Отчет'),
+        ('notice', 'Уведомление'),
+        ('request', 'Заявка'),
+        ('order', 'Приказ'),
+        ('other', 'Другое'),
+    )
+    
+    name = models.CharField(max_length=255, verbose_name="Название шаблона")
+    category = models.CharField(max_length=50, choices=TEMPLATE_CATEGORIES, default='other', verbose_name="Категория")
+    description = models.TextField(blank=True, null=True, verbose_name="Описание")
+    template_file = models.FileField(upload_to='templates/', verbose_name="Файл шаблона")
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_templates', verbose_name="Создатель")
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='templates', verbose_name="Организация")
+    is_public = models.BooleanField(default=False, verbose_name="Общедоступный")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
+        
+    class Meta:
+        verbose_name = "Шаблон документа"
+        verbose_name_plural = "Шаблоны документов"
+
+
 class Document(models.Model):
     STATUS_CHOICES = (
         ('draft', 'Draft'),
@@ -82,6 +112,8 @@ class Document(models.Model):
     note = models.CharField(max_length=255, blank=True, null=True)
     status_change_log = models.TextField(blank=True, null=True)
     summary = models.TextField(blank=True, null=True)
+    template = models.ForeignKey(DocumentTemplate, on_delete=models.SET_NULL, blank=True, null=True, related_name='documents', verbose_name="Шаблон")
+    category = models.CharField(max_length=50, blank=True, null=True, verbose_name="Категория")
 
     def save(self, *args, **kwargs):
         # Автоматическое изменение статуса
@@ -207,3 +239,74 @@ class ChatMessage(models.Model):
 #                 secondary_organization=instance,
 #                 name=f"Chat with {instance.name}"
 #             )
+class DocumentVersion(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='versions', verbose_name="Документ")
+    version_number = models.PositiveIntegerField(verbose_name="Номер версии")
+    content = models.FileField(upload_to='versions/', verbose_name="Содержимое")
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='document_versions', verbose_name="Создатель версии")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    comment = models.TextField(blank=True, null=True, verbose_name="Комментарий к версии")
+    
+    class Meta:
+        unique_together = ('document', 'version_number')
+        ordering = ['-version_number']
+        verbose_name = "Версия документа"
+        verbose_name_plural = "Версии документов"
+    
+    def __str__(self):
+        return f"{self.document.document_name} - версия {self.version_number}"
+
+
+class Certificate(models.Model):
+    CERTIFICATE_TYPES = (
+        ('user', 'Пользовательский'),
+        ('ca', 'Корневой/промежуточный'),
+    )
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='certificates', verbose_name="Пользователь")
+    certificate_data = models.BinaryField(verbose_name="Данные сертификата")
+    private_key = models.BinaryField(blank=True, null=True, verbose_name="Закрытый ключ")
+    certificate_type = models.CharField(max_length=10, choices=CERTIFICATE_TYPES, default='user', verbose_name="Тип сертификата")
+    issuer_name = models.CharField(max_length=255, verbose_name="Издатель")
+    subject_name = models.CharField(max_length=255, verbose_name="Субъект")
+    valid_from = models.DateTimeField(verbose_name="Действителен с")
+    valid_to = models.DateTimeField(verbose_name="Действителен до")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    
+    class Meta:
+        verbose_name = "Сертификат"
+        verbose_name_plural = "Сертификаты"
+    
+    def __str__(self):
+        return f"Сертификат {self.subject_name} ({self.user.username})"
+    
+    def is_valid(self):
+        now = timezone.now()
+        return self.valid_from <= now <= self.valid_to
+
+
+class DigitalSignature(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='signatures', verbose_name="Документ")
+    version = models.ForeignKey(DocumentVersion, on_delete=models.SET_NULL, blank=True, null=True, related_name='signatures', verbose_name="Версия")
+    signer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='signatures', verbose_name="Подписант")
+    certificate = models.ForeignKey(Certificate, on_delete=models.CASCADE, related_name='signatures', verbose_name="Сертификат")
+    signature_data = models.BinaryField(verbose_name="Данные подписи")
+    signature_date = models.DateTimeField(auto_now_add=True, verbose_name="Дата подписания")
+    is_valid = models.BooleanField(default=True, verbose_name="Действительна")
+    validation_date = models.DateTimeField(blank=True, null=True, verbose_name="Дата проверки")
+    
+    class Meta:
+        verbose_name = "Цифровая подпись"
+        verbose_name_plural = "Цифровые подписи"
+    
+    def __str__(self):
+        return f"Подпись {self.signer.username} для {self.document.document_name}"
+    
+    def validate_signature(self):
+        """
+        Проверяет действительность подписи
+        """
+        # Логика проверки подписи будет реализована здесь
+        self.validation_date = timezone.now()
+        self.save()
+        return self.is_valid

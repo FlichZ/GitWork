@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block content %}
+<style>
+/* Стили для превью документов */
+.document-content {
+    font-family: inherit;
+    line-height: 1.5;
+    text-align: inherit;
+}
+
+.document-content h1, 
+.document-content h2, 
+.document-content h3, 
+.document-content h4, 
+.document-content h5, 
+.document-content h6 {
+    font-family: inherit;
+    margin-top: 0.8em;
+    margin-bottom: 0.4em;
+    page-break-after: avoid;
+    font-weight: bold;
+}
+
+.document-content h1 { font-size: 2em; }
+.document-content h2 { font-size: 1.75em; }
+.document-content h3 { font-size: 1.5em; }
+.document-content h4 { font-size: 1.25em; }
+.document-content h5 { font-size: 1.1em; }
+
+.document-content p {
+    margin-bottom: 0.5em;
+}
+
+.document-content a {
+    color: blue;
+    text-decoration: underline;
+}
+
+.document-content ul, 
+.document-content ol {
+    margin-left: 2em;
+    margin-bottom: 1em;
+}
+
+.document-content li {
+    margin-bottom: 0.25em;
+}
+
+.document-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+}
+
+.document-content table td,
+.document-content table th {
+    border: 1px solid #ccc;
+    padding: 8px;
+}
+
+.document-content table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.document-content blockquote {
+    margin: 1em 2em;
+    padding-left: 1em;
+    border-left: 4px solid #ccc;
+    font-style: italic;
+}
+
+.document-content img {
+    max-width: 100%;
+    height: auto;
+    margin: 1em auto;
+    display: block;
+}
+
+.document-content .page-break {
+    page-break-after: always;
+    margin-bottom: 1.5em;
+    border-bottom: 1px dashed #ccc;
+}
+
+/* Улучшение отображения изображений страниц */
+.image-gallery {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2em;
+}
+
+.image-gallery img {
+    width: 100%;
+    height: auto;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    transition: all 0.3s ease;
+}
+
+.image-gallery img:hover {
+    box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+}
+</style>
+<section class="text-gray-600 body-font">
+    <div class="container px-5 py-24 mx-auto">
+        <div class="flex flex-wrap items-center justify-between mb-8">
+            <div>
+                <h1 class="sm:text-3xl text-2xl font-medium title-font text-gray-900">{{ document.document_name }}</h1>
+                <p class="text-indigo-500 mt-2">{% trans "Version" %} {{ version.version_number }}</p>
+            </div>
+            <div class="flex space-x-4">
+                <a href="{% url 'staffs:document_versions' document.id %}" class="text-gray-700 bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition">
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    {% trans "Back to Versions" %}
+                </a>
+                <a href="{% url 'staffs:document-detail' document.id %}" class="text-gray-700 bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition">
+                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                    {% trans "View Document" %}
+                </a>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="md:col-span-2">
+                <div class="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+                    {% if page_images %}
+                    <div class="p-6 border-b">
+                        <h2 class="text-lg font-medium text-gray-900 mb-4">{% trans "Document Preview" %}</h2>
+                        <div class="space-y-6">
+                            {% for image in page_images %}
+                            <div class="border rounded-lg shadow-sm">
+                                <img src="data:image/png;base64,{{ image }}" class="w-full" alt="{% trans 'Page' %} {{ forloop.counter }}">
+                                <div class="bg-gray-100 p-2 text-center text-sm text-gray-500">
+                                    {% trans "Page" %} {{ forloop.counter }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="p-6">
+                        <h2 class="text-lg font-medium text-gray-900 mb-4">{% trans "Document Information" %}</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                            <div>
+                                <p class="flex justify-between">
+                                    <span class="font-medium">{% trans "Name" %}:</span>
+                                    <span>{{ document.document_name }}</span>
+                                </p>
+                                <p class="flex justify-between">
+                                    <span class="font-medium">{% trans "Version" %}:</span>
+                                    <span>{{ version.version_number }}</span>
+                                </p>
+                                <p class="flex justify-between">
+                                    <span class="font-medium">{% trans "Created by" %}:</span>
+                                    <span>{{ version.created_by.username }}</span>
+                                </p>
+                                <p class="flex justify-between">
+                                    <span class="font-medium">{% trans "Created date" %}:</span>
+                                    <span>{{ version.created_at|date:"d.m.Y H:i" }}</span>
+                                </p>
+                            </div>
+                            <div>
+                                {% if document.category %}
+                                <p class="flex justify-between">
+                                    <span class="font-medium">{% trans "Category" %}:</span>
+                                    <span>{{ document.category }}</span>
+                                </p>
+                                {% endif %}
+                                <p class="flex justify-between">
+                                    <span class="font-medium">{% trans "Organization" %}:</span>
+                                    <span>{{ document.sender_organization.name }}</span>
+                                </p>
+                                <p class="flex justify-between">
+                                    <span class="font-medium">{% trans "Status" %}:</span>
+                                    <span class="px-2 py-1 rounded-full text-xs 
+                                        {% if document.status == 'draft' %}bg-gray-200 text-gray-700
+                                        {% elif document.status == 'sent' %}bg-blue-200 text-blue-700
+                                        {% elif document.status == 'received' %}bg-green-200 text-green-700
+                                        {% elif document.status == 'archived' %}bg-yellow-200 text-yellow-700
+                                        {% endif %}">
+                                        {{ document.get_status_display }}
+                                    </span>
+                                </p>
+                                <p class="flex justify-between">
+                                    <span class="font-medium">{% trans "Signatures" %}:</span>
+                                    <span>{{ signatures.count }}</span>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        {% if version.comment %}
+                        <div class="mt-6">
+                            <h3 class="font-medium text-gray-900 mb-2">{% trans "Version Comment" %}:</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <p class="whitespace-pre-line">{{ version.comment }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if version.content %}
+                        <div class="flex justify-between items-center mt-6 p-4 bg-gray-50 rounded-lg">
+                            <div class="flex items-center">
+                                <svg class="w-8 h-8 text-indigo-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <div>
+                                    <p class="font-medium">{% trans "Document File" %}</p>
+                                    <p class="text-sm text-gray-500">{{ version.content.name }}</p>
+                                </div>
+                            </div>
+                            <a href="{{ version.content.url }}" class="bg-indigo-100 text-indigo-700 py-2 px-4 rounded hover:bg-indigo-200 transition flex items-center" target="_blank">
+                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                {% trans "Download" %}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Signatures Section -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="p-6 border-b">
+                        <h2 class="text-lg font-medium text-gray-900">{% trans "Digital Signatures" %}</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        {% if signatures %}
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Signer" %}</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Certificate" %}</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Date" %}</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Status" %}</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{% trans "Actions" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for signature in signatures %}
+                                <tr class="{% cycle 'bg-white' 'bg-gray-50' %}">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">{{ signature.signer.username }}</div>
+                                        <div class="text-sm text-gray-500">{{ signature.signer.organization.name }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">{{ signature.certificate.subject_name }}</div>
+                                        <div class="text-sm text-gray-500">{% trans "Valid until" %}: {{ signature.certificate.valid_to|date:"d.m.Y" }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">{{ signature.signature_date|date:"d.m.Y H:i" }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {% if signature.is_valid %}
+                                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            {% trans "Valid" %}
+                                        </span>
+                                        {% else %}
+                                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                            {% trans "Invalid" %}
+                                        </span>
+                                        {% endif %}
+                                        {% if signature.validation_date %}
+                                        <div class="text-xs text-gray-500 mt-1">{% trans "Last check" %}: {{ signature.validation_date|date:"d.m.Y H:i" }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <form method="post" action="{% url 'staffs:verify_signature' signature.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="text-indigo-600 hover:text-indigo-900">
+                                                {% trans "Verify" %}
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="p-6 text-center text-gray-500">
+                            {% trans "No signatures have been added to this version." %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="md:col-span-1">
+                <div class="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+                    <div class="bg-indigo-500 text-white font-medium py-3 px-4">
+                        {% trans "Actions" %}
+                    </div>
+                    <div class="p-6 space-y-4">
+                        {% if can_restore %}
+                        <form method="post" action="{% url 'staffs:restore_version' document.id version.version_number %}">
+                            {% csrf_token %}
+                            <button type="submit" class="w-full flex justify-center items-center bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition" onclick="return confirm('{% trans 'Are you sure you want to restore this version as the current version?' %}');">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                </svg>
+                                {% trans "Restore This Version" %}
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        {% if can_sign %}
+                        <form method="post" action="{% url 'staffs:sign_version' document.id version.version_number %}">
+                            {% csrf_token %}
+                            <button type="submit" class="w-full flex justify-center items-center bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition" onclick="return confirm('{% trans 'Are you sure you want to sign this version?' %}');">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                </svg>
+                                {% trans "Sign This Version" %}
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        {% if version.content %}
+                        <a href="{{ version.content.url }}" class="w-full flex justify-center items-center bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 transition" target="_blank">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            {% trans "Download" %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="bg-gray-100 text-gray-700 font-medium py-3 px-4">
+                        {% trans "Version History" %}
+                    </div>
+                    <div class="p-6">
+                        <ul class="space-y-4">
+                            {% for v in document.versions.all %}
+                            <li class="flex items-start">
+                                <div class="flex-shrink-0 mt-1">
+                                    <div class="w-3 h-3 rounded-full {% if v.id == version.id %}bg-indigo-500{% else %}bg-gray-300{% endif %}"></div>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <a href="{% url 'staffs:version_detail' document.id v.version_number %}" 
+                                       class="text-sm font-medium text-gray-900 {% if v.id == version.id %}text-indigo-600{% endif %}">
+                                        {% trans "Version" %} {{ v.version_number }}
+                                    </a>
+                                    <p class="text-xs text-gray-500">{{ v.created_at|date:"d.m.Y H:i" }} - {{ v.created_by.username }}</p>
+                                    {% if v.comment %}
+                                    <p class="text-xs text-gray-600 mt-1 truncate">{{ v.comment|truncatechars:60 }}</p>
+                                    {% endif %}
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        
+                        <div class="mt-6">
+                            <a href="{% url 'staffs:document_versions' document.id %}" class="text-indigo-600 hover:text-indigo-800 text-sm flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                                </svg>
+                                {% trans "View All Versions" %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %} 
+ 

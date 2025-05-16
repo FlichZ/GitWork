@@ -7,20 +7,26 @@
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-3xl font-bold text-gray-800">{% trans "Document Log" %}</h2>
         <div class="flex space-x-3">
+            <button id="reset-changes" class="inline-flex items-center px-4 py-2 bg-red-600 text-gray-200 rounded-lg shadow hover:bg-red-700 transition duration-200">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                {% trans "Reset All Changes" %}
+            </button>
             <button id="undo-button" class="inline-flex items-center px-4 py-2 bg-gray-600 text-gray-200 rounded-lg shadow hover:bg-gray-700 transition duration-200 disabled:opacity-50 mr-5" disabled>
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6-6m0 0l-6 6"></path>
                 </svg>
                 {% trans "Undo" %}
             </button>
             <button id="redo-button" class="inline-flex items-center px-4 py-2 bg-gray-600 text-gray-200 rounded-lg shadow hover:bg-gray-700 transition duration-200 disabled:opacity-50 mr-5" disabled>
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a8 8 0 00-8 8v2m0-10l-6 6m6-6l6 6"></path>
                 </svg>
                 {% trans "Redo" %}
             </button>
             <a href="{% url 'staffs:document_log' %}?download=1" class="inline-flex items-center px-4 py-2 bg-indigo-700 text-gray-200 rounded-lg shadow hover:bg-indigo-800 transition duration-200">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                 </svg>
                 {% trans "Download as Excel" %}
@@ -79,41 +85,61 @@ document.addEventListener('DOMContentLoaded', function () {
     const redoButton = document.getElementById('redo-button');
     let undoStack = []; // Стек для хранения истории отмен
     let redoStack = []; // Стек для хранения истории повторного применения
+    let currentEditingCell = null;
+    const suggestionDelay = 300;
+    let suggestionTimeout = null;
 
-    editableCells.forEach(cell => {
-        cell.addEventListener('click', function () {
-            const currentText = this.innerText;
-            const documentId = this.getAttribute('data-document-id');
-            const field = this.getAttribute('data-field');
+    // Функция для получения подсказок
+    function getSuggestions(field, query) {
+        fetch(`{% url 'staffs:get_field_suggestions' %}?field=${field}&query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                const suggestions = document.getElementById('field-suggestions');
+                suggestions.innerHTML = '';
+                
+                if (data.suggestions.length > 0) {
+                    data.suggestions.forEach(suggestion => {
+                        const div = document.createElement('div');
+                        div.className = 'px-4 py-2 hover:bg-gray-100 cursor-pointer';
+                        div.textContent = suggestion;
+                        div.onclick = () => {
+                            currentEditingCell.textContent = suggestion;
+                            suggestions.classList.add('hidden');
+                            // Отправляем изменения на сервер
+                            updateField(currentEditingCell);
+                        };
+                        suggestions.appendChild(div);
+                    });
+                    suggestions.classList.remove('hidden');
+                } else {
+                    suggestions.classList.add('hidden');
+                }
+            });
+    }
 
-            // Создаём поле ввода с границами
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = currentText;
-            input.className = 'w-full px-2 py-1 border-2 border-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm';
-
-            // Заменяем текст на поле ввода
-            this.innerText = '';
-            this.appendChild(input);
-            input.focus();
-
-            // Обработка сохранения
-            input.addEventListener('blur', function () {
-                const newValue = this.value;
-                cell.innerText = newValue;
+    // Функция для отправки обновлений поля на сервер
+    function updateField(cell) {
+        const newValue = cell.innerText;
+        const documentId = cell.getAttribute('data-document-id');
+        const field = cell.getAttribute('data-field');
+        
+        // Сохраняем предыдущее значение в стеке отмен
+        const previousValue = cell.getAttribute('data-previous-value') || '';
 
                 // Добавляем изменение в стек отмен
                 undoStack.push({
                     cell: cell,
-                    oldValue: currentText,
+            oldValue: previousValue,
                     newValue: newValue,
                     documentId: documentId,
                     field: field
                 });
-                // Очищаем стек повторного применения, так как новое изменение делает предыдущие "redo" неактуальными
+        
+        // Очищаем стек повторных действий
                 redoStack = [];
-                undoButton.disabled = false;
-                redoButton.disabled = true;
+        
+        // Обновляем состояние кнопок
+        updateButtonStates();
 
                 // Отправляем AJAX-запрос
                 fetch("{% url 'staffs:update_document_field' %}", {
@@ -128,30 +154,34 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(data => {
                     if (data.status === 'success') {
                         cell.classList.add('bg-green-100', 'animate-pulse');
+                setTimeout(() => {
+                    cell.classList.remove('bg-green-100', 'animate-pulse');
+                }, 1000);
                     } else {
                         cell.classList.add('bg-red-100', 'animate-pulse');
                         alert(data.message);
-                        cell.innerText = currentText; // Откатываем изменения
+                cell.innerText = previousValue; // Откатываем изменения
                         undoStack.pop(); // Удаляем последнее изменение из стека
-                        undoButton.disabled = undoStack.length === 0;
+                updateButtonStates();
                     }
                 })
                 .catch(error => {
                     cell.classList.add('bg-red-100', 'animate-pulse');
                     alert('Error: ' + error);
-                    cell.innerText = currentText; // Откатываем изменения
+            cell.innerText = previousValue; // Откатываем изменения
                     undoStack.pop(); // Удаляем последнее изменение из стека
-                    undoButton.disabled = undoStack.length === 0;
+            updateButtonStates();
                 });
-            });
+    }
 
-            // Сохранение при нажатии Enter
-            input.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    this.blur();
+    // Закрытие подсказок при клике вне
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.editable') && !e.target.closest('#field-suggestions')) {
+            const suggestions = document.getElementById('field-suggestions');
+            if (suggestions) {
+                suggestions.classList.add('hidden');
                 }
-            });
-        });
+        }
     });
 
     // Обработка кнопки Undo
@@ -183,6 +213,9 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 if (data.status === 'success') {
                     cell.classList.add('bg-yellow-100', 'animate-pulse');
+                    setTimeout(() => {
+                        cell.classList.remove('bg-yellow-100', 'animate-pulse');
+                    }, 1000);
                 } else {
                     cell.classList.add('bg-red-100', 'animate-pulse');
                     alert(data.message);
@@ -200,8 +233,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             // Обновляем состояние кнопок
-            undoButton.disabled = undoStack.length === 0;
-            redoButton.disabled = redoStack.length === 0;
+            updateButtonStates();
         }
     });
 
@@ -234,6 +266,9 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 if (data.status === 'success') {
                     cell.classList.add('bg-green-100', 'animate-pulse');
+                    setTimeout(() => {
+                        cell.classList.remove('bg-green-100', 'animate-pulse');
+                    }, 1000);
                 } else {
                     cell.classList.add('bg-red-100', 'animate-pulse');
                     alert(data.message);
@@ -251,10 +286,192 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             // Обновляем состояние кнопок
-            undoButton.disabled = undoStack.length === 0;
-            redoButton.disabled = redoStack.length === 0;
+            updateButtonStates();
         }
     });
+
+    // Обновляем обработчик кнопки сброса
+    const resetButton = document.getElementById('reset-changes');
+    resetButton.addEventListener('click', function() {
+        if (confirm("{% trans 'Are you sure you want to reset all changes? This will reload data from original documents.' %}")) {
+            // Показываем индикатор загрузки
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            loadingOverlay.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-xl">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-700 mx-auto"></div>
+                    <p class="mt-4 text-gray-700">{% trans "Reloading document data..." %}</p>
+                </div>
+            `;
+            document.body.appendChild(loadingOverlay);
+
+            // Отправляем запрос на сервер
+            fetch("{% url 'staffs:reset_document_data' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Обновляем данные в таблице
+                    const tbody = document.querySelector('tbody');
+                    tbody.innerHTML = '';
+                    data.table_data.forEach(row => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'hover:bg-gray-50 transition duration-150';
+                        tr.innerHTML = `
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200">${row.number}</td>
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="${row.id}" data-field="date_sent_accepted">${row.date_sent_accepted}</td>
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="${row.id}" data-field="recipient_name">${row.recipient}</td>
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="${row.id}" data-field="summary">${row.summary}</td>
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="${row.id}" data-field="page_count">${row.page_count}</td>
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="${row.id}" data-field="attachment">${row.attachment}</td>
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200">${row.sender}</td>
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="${row.id}" data-field="method">${row.method}</td>
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="${row.id}" data-field="date_sent">${row.date_sent}</td>
+                            <td class="px-6 py-4 text-gray-700 border-r border-gray-200 editable" data-document-id="${row.id}" data-field="date_received">${row.date_received}</td>
+                            <td class="px-6 py-4 text-gray-700 editable" data-document-id="${row.id}" data-field="note">${row.note}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    // Очищаем историю изменений
+                    undoStack = [];
+                    redoStack = [];
+                    updateButtonStates();
+
+                    // Показываем уведомление об успехе
+                    const notification = document.createElement('div');
+                    notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transition-opacity duration-500';
+                    notification.textContent = data.message;
+                    document.body.appendChild(notification);
+
+                    // Удаляем уведомление через 3 секунды
+                    setTimeout(() => {
+                        notification.style.opacity = '0';
+                        setTimeout(() => notification.remove(), 500);
+                    }, 3000);
+
+                    // Переинициализируем обработчики событий для редактируемых ячеек
+                    initializeEditableCells();
+                } else {
+                    throw new Error(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Показываем уведомление об ошибке
+                const notification = document.createElement('div');
+                notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg';
+                notification.textContent = error.message || "{% trans 'Error resetting document data. Please try again.' %}";
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 3000);
+            })
+            .finally(() => {
+                // Удаляем индикатор загрузки
+                loadingOverlay.remove();
+            });
+        }
+    });
+
+    // Инициализируем обработчики для редактируемых ячеек
+    function initializeEditableCells() {
+        const editableCells = document.querySelectorAll('.editable');
+        editableCells.forEach(cell => {
+            // Очищаем предыдущие обработчики, если они были
+            cell.removeEventListener('click', handleCellClick);
+            // Добавляем новый обработчик
+            cell.addEventListener('click', handleCellClick);
+        });
+    }
+    
+    // Функция для обновления состояния кнопок undo и redo
+    function updateButtonStates() {
+        undoButton.disabled = undoStack.length === 0;
+        redoButton.disabled = redoStack.length === 0;
+        }
+    
+    // Функция обработки клика по ячейке
+    function handleCellClick() {
+        const currentText = this.innerText;
+        const documentId = this.getAttribute('data-document-id');
+        const field = this.getAttribute('data-field');
+        
+        // Сохраняем текущее значение как предыдущее для возможности отката
+        this.setAttribute('data-previous-value', currentText);
+        
+        currentEditingCell = this;
+
+        // Создаём поле ввода с границами
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentText;
+        input.className = 'w-full px-2 py-1 border-2 border-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm';
+
+        // Добавляем контейнер для подсказок, если его еще нет
+        if (!document.getElementById('field-suggestions')) {
+            const suggestionsDiv = document.createElement('div');
+            suggestionsDiv.id = 'field-suggestions';
+            suggestionsDiv.className = 'absolute z-50 w-64 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg hidden';
+            document.body.appendChild(suggestionsDiv);
+        }
+
+        // Обработчик ввода для подсказок
+        input.addEventListener('input', function() {
+            clearTimeout(suggestionTimeout);
+            const query = this.value;
+            
+            if (query.length >= 2) {
+                suggestionTimeout = setTimeout(() => {
+                    getSuggestions(field, query);
+                }, suggestionDelay);
+            } else {
+                document.getElementById('field-suggestions').classList.add('hidden');
+            }
+        });
+
+        // Заменяем текст на поле ввода
+        this.innerText = '';
+        this.appendChild(input);
+        input.focus();
+
+        // Позиционируем подсказки под полем ввода
+        const suggestions = document.getElementById('field-suggestions');
+        const rect = input.getBoundingClientRect();
+        suggestions.style.top = `${rect.bottom + window.scrollY}px`;
+        suggestions.style.left = `${rect.left}px`;
+
+        // Обработка потери фокуса
+        input.addEventListener('blur', function() {
+            setTimeout(() => {
+                const suggestions = document.getElementById('field-suggestions');
+                if (suggestions) {
+                    suggestions.classList.add('hidden');
+                }
+                
+                // Обновляем значение ячейки и отправляем на сервер
+                const newValue = this.value;
+                currentEditingCell.innerText = newValue;
+                updateField(currentEditingCell);
+            }, 200);
+        });
+
+        // Сохранение при нажатии Enter
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                this.blur();
+            }
+        });
+    }
+
+    // Инициализируем обработчики при загрузке страницы
+    initializeEditableCells();
+    
+    // Изначально деактивируем кнопки, так как истории изменений ещё нет
+    updateButtonStates();
 });
 </script>
 {% endblock %}

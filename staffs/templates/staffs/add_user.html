@@ -6,7 +6,82 @@
         <h1 class="text-center title-font sm:text-4xl text-3xl mb-4 mt-4 font-medium text-gray-500">{% trans "Create User" %}</h1>
         <form action="" method="post">
             {% csrf_token %}
-            {{ form|crispy }}
+            
+            <div class="mb-6">
+                <label for="id_username" class="block text-sm font-medium text-gray-700">{{ form.username.label }}</label>
+                {{ form.username }}
+                {% if form.username.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.username.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-6">
+                <label for="id_password1" class="block text-sm font-medium text-gray-700">{{ form.password1.label }}</label>
+                {{ form.password1 }}
+                {% if form.password1.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.password1.errors }}</div>
+                {% endif %}
+                
+                <!-- Password validation indicators -->
+                <div class="mt-2 password-validators">
+                    <p class="text-sm font-medium text-gray-700 mb-2">{% trans "Password requirements:" %}</p>
+                    <div class="validator-item flex items-center" id="validator-length">
+                        <span class="validator-icon text-red-500 mr-2">✗</span>
+                        <span class="validator-text text-gray-600">{% trans "Your password must contain at least 8 characters." %}</span>
+                    </div>
+                    <div class="validator-item flex items-center" id="validator-similarity">
+                        <span class="validator-icon text-red-500 mr-2">✗</span>
+                        <span class="validator-text text-gray-600">{% trans "Your password can't be too similar to your other personal information." %}</span>
+                    </div>
+                    <div class="validator-item flex items-center" id="validator-common">
+                        <span class="validator-icon text-red-500 mr-2">✗</span>
+                        <span class="validator-text text-gray-600">{% trans "Your password can't be a commonly used password." %}</span>
+                    </div>
+                    <div class="validator-item flex items-center" id="validator-numeric">
+                        <span class="validator-icon text-red-500 mr-2">✗</span>
+                        <span class="validator-text text-gray-600">{% trans "Your password can't be entirely numeric." %}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <label for="id_password2" class="block text-sm font-medium text-gray-700">{{ form.password2.label }}</label>
+                {{ form.password2 }}
+                {% if form.password2.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.password2.errors }}</div>
+                {% endif %}
+                
+                <!-- Password match indicator -->
+                <div class="validator-item flex items-center mt-2" id="validator-match">
+                    <span class="validator-icon text-red-500 mr-2">✗</span>
+                    <span class="validator-text text-gray-600">{% trans "Passwords match" %}</span>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <label for="id_organization" class="block text-sm font-medium text-gray-700">{{ form.organization.label }}</label>
+                {{ form.organization }}
+                {% if form.organization.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.organization.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-6">
+                <label for="id_role" class="block text-sm font-medium text-gray-700">{{ form.role.label }}</label>
+                {{ form.role }}
+                {% if form.role.errors %}
+                    <div class="text-red-500 text-sm mt-1">{{ form.role.errors }}</div>
+                {% endif %}
+            </div>
+            
+            {% if form.non_field_errors %}
+                <div class="text-red-500 text-sm mb-4">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            
             <a href="{% url 'staffs:add-organization' %}" class="mr-5 inline-flex items-center bg-gray-100 border-0 py-1 px-3 focus:outline-none hover:bg-gray-200 rounded text-gray-700 mt-4 md:mt-0">{% trans "Add Org" %}
             <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-1" viewBox="0 0 24 24">
               <path d="M5 12h14M12 5l7 7-7 7"></path>
@@ -18,11 +93,109 @@
     </div>
 
     <style>
-        input {
+        input, select {
             border: 1px solid #e0e0e0;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            width: 100%;
         }
         strong {
             color: red;
         }
+        .validator-item.valid .validator-icon {
+            color: #10B981; /* green-500 */
+        }
+        .validator-item.valid .validator-text {
+            color: #10B981; /* green-500 */
+        }
     </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const password1Input = document.getElementById('id_password1');
+            const password2Input = document.getElementById('id_password2');
+            const usernameInput = document.getElementById('id_username');
+            
+            // Validators
+            const validatorLength = document.getElementById('validator-length');
+            const validatorSimilarity = document.getElementById('validator-similarity');
+            const validatorCommon = document.getElementById('validator-common');
+            const validatorNumeric = document.getElementById('validator-numeric');
+            const validatorMatch = document.getElementById('validator-match');
+            
+            function updateValidators() {
+                const password = password1Input.value;
+                const username = usernameInput.value;
+                
+                // Check length (at least 8 characters)
+                if (password.length >= 8) {
+                    markValid(validatorLength);
+                } else {
+                    markInvalid(validatorLength);
+                }
+                
+                // Check if password is not similar to username
+                if (username && password && !isSimilar(password, username)) {
+                    markValid(validatorSimilarity);
+                } else {
+                    markInvalid(validatorSimilarity);
+                }
+                
+                // Check if password is not entirely numeric
+                if (password && !/^\d+$/.test(password)) {
+                    markValid(validatorNumeric);
+                } else {
+                    markInvalid(validatorNumeric);
+                }
+                
+                // We can't completely check for common passwords on the client side,
+                // but we can do some basic checks for very common ones
+                if (password && !isCommonPassword(password)) {
+                    markValid(validatorCommon);
+                } else {
+                    markInvalid(validatorCommon);
+                }
+                
+                // Check if passwords match
+                if (password && password === password2Input.value) {
+                    markValid(validatorMatch);
+                } else {
+                    markInvalid(validatorMatch);
+                }
+            }
+            
+            function markValid(element) {
+                element.classList.add('valid');
+                element.querySelector('.validator-icon').textContent = '✓';
+            }
+            
+            function markInvalid(element) {
+                element.classList.remove('valid');
+                element.querySelector('.validator-icon').textContent = '✗';
+            }
+            
+            function isSimilar(password, username) {
+                // Simple check - if password contains username
+                return password.toLowerCase().includes(username.toLowerCase()) || 
+                       username.toLowerCase().includes(password.toLowerCase());
+            }
+            
+            function isCommonPassword(password) {
+                // List of some common passwords to check against
+                const commonPasswords = [
+                    'password', '123456', 'qwerty', 'admin', 'welcome',
+                    '123456789', '12345678', '1234567', '123123', 'abcdef'
+                ];
+                return commonPasswords.includes(password.toLowerCase());
+            }
+            
+            // Add event listeners
+            password1Input.addEventListener('input', updateValidators);
+            password2Input.addEventListener('input', updateValidators);
+            usernameInput.addEventListener('input', updateValidators);
+            
+            // Run validation on page load (in case of form resubmission)
+            updateValidators();
+        });
+    </script>
 {% endblock content %}

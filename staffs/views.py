@@ -2,7 +2,7 @@ import csv
 import sqlite3
 from datetime import datetime
 import json
-
+import mimetypes
 from django.conf import settings
 from django.db import connections
 from django.shortcuts import render, redirect, get_object_or_404
@@ -10,12 +10,11 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
-from .models import Document, Organization, User, UserActionLog, Notification, ChatMessage, Chat
+from .models import Document, Organization, User, UserActionLog, Notification, ChatMessage, Chat, DocumentTemplate, DocumentVersion, DigitalSignature
 from .forms import SendDocumentForm, CustomUserCreationForm, OrganizationCreationForm, OrganizationEditForm
 from django.contrib import messages as django_messages
 from django.http import FileResponse, HttpResponse, JsonResponse
 import os
-from mimetypes import guess_type
 import io
 import base64
 from pdf2image import convert_from_path
@@ -31,7 +30,117 @@ from openpyxl.styles import Font, Alignment, Border, Side
 from io import BytesIO
 from django.views.decorators.http import require_POST, require_GET
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from PyPDF2 import PdfReader
+from django.core.files import File
+from django.urls import reverse
 
+try:
+    from docx2pdf import convert as docx2pdf_convert
+    DOCX2PDF_AVAILABLE = True
+except ImportError:
+    DOCX2PDF_AVAILABLE = False
+
+try:
+    import unoconv
+    UNOCONV_AVAILABLE = True
+except ImportError:
+    UNOCONV_AVAILABLE = False
+
+try:
+    from docx2python import docx2python
+    DOCX2PYTHON_AVAILABLE = True
+except ImportError:
+    DOCX2PYTHON_AVAILABLE = False
+
+# Проверяем доступность LibreOffice/OpenOffice
+def check_libreoffice_available():
+    try:
+        result = subprocess.run(['which', 'soffice'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return result.returncode == 0
+    except Exception:
+        return False
+
+LIBREOFFICE_AVAILABLE = check_libreoffice_available()
+
+# Функция для конвертации DOCX в PDF с сохранением форматирования
+def convert_docx_to_pdf(input_path, output_path):
+    """
+    Конвертирует DOCX в PDF, пытаясь использовать различные методы, сохраняя форматирование.
+    Возвращает True, если конвертация успешна, иначе False.
+    """
+    conversion_success = False
+    error_message = ""
+    
+    # Способ 1: Использование docx2pdf (MS Word)
+    if DOCX2PDF_AVAILABLE and not conversion_success:
+        try:
+            logger.info(f"Попытка конвертации с помощью docx2pdf: {input_path}")
+            docx2pdf_convert(input_path, output_path)
+            conversion_success = os.path.exists(output_path) and os.path.getsize(output_path) > 0
+            if conversion_success:
+                logger.info("Конвертация с помощью docx2pdf успешна")
+        except Exception as e:
+            error_message += f"docx2pdf: {str(e)}; "
+            logger.warning(f"docx2pdf не смог конвертировать файл: {str(e)}")
+    
+    # Способ 2: Использование LibreOffice напрямую
+    if LIBREOFFICE_AVAILABLE and not conversion_success:
+        try:
+            logger.info(f"Попытка конвертации с помощью LibreOffice: {input_path}")
+            # Получаем абсолютные пути для корректной работы soffice
+            abs_input = os.path.abspath(input_path)
+            abs_output_dir = os.path.dirname(os.path.abspath(output_path))
+            
+            # Используем headless режим LibreOffice для конвертации
+            cmd = [
+                'soffice', '--headless', '--convert-to', 'pdf', 
+                '--outdir', abs_output_dir, abs_input
+            ]
+            
+            process = subprocess.run(
+                cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE,
+                timeout=30  # Таймаут 30 секунд
+            )
+            
+            # Проверяем результат
+            if process.returncode == 0:
+                # LibreOffice сохраняет с тем же именем, но расширением .pdf
+                base_name = os.path.basename(abs_input)
+                name_without_ext = os.path.splitext(base_name)[0]
+                libreoffice_output = os.path.join(abs_output_dir, f"{name_without_ext}.pdf")
+                
+                # Если имя отличается от требуемого, переименовываем
+                if libreoffice_output != output_path and os.path.exists(libreoffice_output):
+                    shutil.move(libreoffice_output, output_path)
+                
+                conversion_success = os.path.exists(output_path) and os.path.getsize(output_path) > 0
+                if conversion_success:
+                    logger.info("Конвертация с помощью LibreOffice успешна")
+            else:
+                error_message += f"LibreOffice: {process.stderr.decode('utf-8', errors='ignore')}; "
+                logger.warning(f"LibreOffice вернул ошибку: {process.stderr.decode('utf-8', errors='ignore')}")
+        except Exception as e:
+            error_message += f"LibreOffice: {str(e)}; "
+            logger.warning(f"Ошибка при использовании LibreOffice: {str(e)}")
+    
+    # Способ 3: Использование unoconv (через LibreOffice/OpenOffice)
+    if UNOCONV_AVAILABLE and not conversion_success:
+        try:
+            logger.info(f"Попытка конвертации с помощью unoconv: {input_path}")
+            unoconv.convert(input_path, output_path, 'pdf')
+            conversion_success = os.path.exists(output_path) and os.path.getsize(output_path) > 0
+            if conversion_success:
+                logger.info("Конвертация с помощью unoconv успешна")
+        except Exception as e:
+            error_message += f"unoconv: {str(e)}; "
+            logger.warning(f"unoconv не смог конвертировать файл: {str(e)}")
+    
+    if not conversion_success:
+        logger.error(f"Все методы конвертации завершились неудачно: {error_message}")
+    
+    return conversion_success
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -82,7 +191,7 @@ def document_detail(request, document_id):
             django_messages.error(request, ("File not found on server: ") + file_path)
             page_images_base64 = None
         else:
-            content_type, _ = guess_type(file_path)
+            content_type, _ = mimetypes.guess_type(file_path)
             logger.info(f"Detected content type: {content_type}")
 
             try:
@@ -93,19 +202,43 @@ def document_detail(request, document_id):
                         img.save(buffered, format="PNG")
                         img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
                         page_images_base64.append(img_base64)
-                elif content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-                    doc = DocxDocument(file_path)
-                    text = '\n'.join([p.text for p in doc.paragraphs if p.text.strip()])
-                    if not text:
-                        logger.warning(f"DOCX file is empty: {file_path}")
-                        django_messages.warning(request, ("The DOCX file is empty or contains no readable text."))
-                    else:
-                        images = text_to_images(text, width=800, height=1200)
-                        for img in images:
-                            buffered = io.BytesIO()
-                            img.save(buffered, format="PNG")
-                            img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-                            page_images_base64.append(img_base64)
+                elif content_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword']:
+                    # Создаем временный файл для PDF
+                    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+                        temp_pdf_path = temp_pdf.name
+                    
+                    try:
+                        # Используем улучшенную функцию конвертации
+                        conversion_success = convert_docx_to_pdf(file_path, temp_pdf_path)
+                        
+                        # Если конвертация удалась, генерируем изображения страниц
+                        if conversion_success:
+                            # Используем более высокое разрешение для лучшего качества
+                            images = convert_from_path(temp_pdf_path, dpi=300)
+                            for img in images:
+                                buffered = io.BytesIO()
+                                img.save(buffered, format="PNG", quality=95)  # Высокое качество
+                                img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                                page_images_base64.append(img_base64)
+                        else:
+                            # Если конвертация не удалась, используем резервный метод text_to_images
+                            logger.warning(f"Failed to convert DOCX to PDF, using fallback method")
+                            doc = DocxDocument(file_path)
+                            text = '\n'.join([p.text for p in doc.paragraphs if p.text.strip()])
+                            if not text:
+                                logger.warning(f"DOCX file is empty: {file_path}")
+                                django_messages.warning(request, ("The DOCX file is empty or contains no readable text."))
+                            else:
+                                images = text_to_images(text, width=800, height=1200)
+                                for img in images:
+                                    buffered = io.BytesIO()
+                                    img.save(buffered, format="PNG")
+                                    img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                                    page_images_base64.append(img_base64)
+                    finally:
+                        # Удаляем временный PDF файл
+                        if os.path.exists(temp_pdf_path):
+                            os.unlink(temp_pdf_path)
                 elif content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
                     df = pd.read_excel(file_path)
                     text = df.to_string(index=False)
@@ -173,18 +306,36 @@ def download_page(request, document_id, page_index):
         return redirect('staffs:document-detail', document_id=document_id)
 
     file_path = document.document_content.path
-    content_type, _ = guess_type(file_path)
+    content_type, _ = mimetypes.guess_type(file_path)
     page_images = []
 
     try:
         if content_type == 'application/pdf':
             images = convert_from_path(file_path, dpi=200)
             page_images = images
-        elif content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-            doc = DocxDocument(file_path)
-            text = '\n'.join([p.text for p in doc.paragraphs if p.text.strip()])
-            images = text_to_images(text, width=800, height=1200)
-            page_images = images
+        elif content_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword']:
+            # Создаем временный файл для PDF
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+                temp_pdf_path = temp_pdf.name
+            
+            try:
+                # Используем улучшенную функцию конвертации
+                conversion_success = convert_docx_to_pdf(file_path, temp_pdf_path)
+                
+                # Если конвертация удалась, используем изображения из PDF
+                if conversion_success:
+                    images = convert_from_path(temp_pdf_path, dpi=300)
+                    page_images = images
+                else:
+                    # Если конвертация не удалась, используем резервный метод
+                    doc = DocxDocument(file_path)
+                    text = '\n'.join([p.text for p in doc.paragraphs if p.text.strip()])
+                    images = text_to_images(text, width=800, height=1200)
+                    page_images = images
+            finally:
+                # Удаляем временный PDF файл
+                if os.path.exists(temp_pdf_path):
+                    os.unlink(temp_pdf_path)
         elif content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
             df = pd.read_excel(file_path)
             text = df.to_string(index=False)
@@ -212,44 +363,109 @@ def download_page(request, document_id, page_index):
 def text_to_images(text, width=800, height=1200):
     images = []
     try:
-        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 16)
+        # Используем Arial для лучшего отображения
+        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 14)
+        bold_font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 14)
     except:
         font = ImageFont.load_default()
+        bold_font = font
 
-    lines = []
-    current_line = ""
-    for word in text.split():
-        test_line = current_line + " " + word if current_line else word
-        if ImageDraw.Draw(Image.new('RGB', (1, 1))).textlength(test_line, font=font) < (width - 40):
-            current_line = test_line
-        else:
-            lines.append(current_line)
-            current_line = word
-    if current_line:
-        lines.append(current_line)
-
+    # Разбиваем текст на параграфы
+    paragraphs = text.split('\n')
+    
     current_page_lines = []
-    y = 20
-    for line in lines:
-        if y + 20 > height - 20:
-            img = Image.new('RGB', (width, height), color='white')
-            draw = ImageDraw.Draw(img)
-            y_pos = 20
-            for page_line in current_page_lines:
-                draw.text((20, y_pos), page_line, font=font, fill='black')
-                y_pos += 20
-            images.append(img)
-            current_page_lines = []
-            y = 20
-        current_page_lines.append(line)
-        y += 20
+    y = 40  # Начинаем с отступом сверху
+    
+    for paragraph in paragraphs:
+        if not paragraph.strip():
+            # Пустая строка - добавляем дополнительный отступ
+            y += 20
+            if y + 20 > height - 40:
+                # Создаем новую страницу
+                img = Image.new('RGB', (width, height), color='white')
+                draw = ImageDraw.Draw(img)
+                
+                # Отрисовываем текущие линии
+                y_pos = 40
+                for line_info in current_page_lines:
+                    line_text, is_bold = line_info
+                    current_font = bold_font if is_bold else font
+                    draw.text((40, y_pos), line_text, font=current_font, fill='black')
+                    y_pos += 20
+                
+                images.append(img)
+                current_page_lines = []
+                y = 40
+            continue
 
+        # Определяем, является ли параграф заголовком (если начинается с # или содержит только заглавные буквы)
+        is_heading = paragraph.startswith('#') or (paragraph.isupper() and len(paragraph) > 3)
+        if is_heading:
+            paragraph = paragraph.lstrip('#').strip()
+            
+        # Разбиваем длинные строки на части, которые помещаются по ширине
+        words = paragraph.split()
+        current_line = ""
+        
+        for word in words:
+            test_line = current_line + " " + word if current_line else word
+            # Используем соответствующий шрифт для измерения
+            current_font = bold_font if is_heading else font
+            if ImageDraw.Draw(Image.new('RGB', (1, 1))).textlength(test_line, font=current_font) < (width - 80):
+                current_line = test_line
+            else:
+                # Добавляем заполненную строку
+                if y + 20 > height - 40:
+                    # Создаем новую страницу
+                    img = Image.new('RGB', (width, height), color='white')
+                    draw = ImageDraw.Draw(img)
+                    
+                    # Отрисовываем текущие линии
+                    y_pos = 40
+                    for line_info in current_page_lines:
+                        line_text, is_bold = line_info
+                        current_font = bold_font if is_bold else font
+                        draw.text((40, y_pos), line_text, font=current_font, fill='black')
+                        y_pos += 20
+                    
+                    images.append(img)
+                    current_page_lines = []
+                    y = 40
+                
+                current_page_lines.append((current_line, is_heading))
+                y += 20
+                current_line = word
+        
+        # Добавляем последнюю строку параграфа
+        if current_line:
+            if y + 20 > height - 40:
+                img = Image.new('RGB', (width, height), color='white')
+                draw = ImageDraw.Draw(img)
+                y_pos = 40
+                for line_info in current_page_lines:
+                    line_text, is_bold = line_info
+                    current_font = bold_font if is_bold else font
+                    draw.text((40, y_pos), line_text, font=current_font, fill='black')
+                    y_pos += 20
+                images.append(img)
+                current_page_lines = []
+                y = 40
+            
+            current_page_lines.append((current_line, is_heading))
+            y += 20
+        
+        # Добавляем отступ после параграфа
+        y += 10
+
+    # Создаем последнюю страницу, если остались непустые строки
     if current_page_lines:
         img = Image.new('RGB', (width, height), color='white')
         draw = ImageDraw.Draw(img)
-        y_pos = 20
-        for page_line in current_page_lines:
-            draw.text((20, y_pos), page_line, font=font, fill='black')
+        y_pos = 40
+        for line_info in current_page_lines:
+            line_text, is_bold = line_info
+            current_font = bold_font if is_bold else font
+            draw.text((40, y_pos), line_text, font=current_font, fill='black')
             y_pos += 20
         images.append(img)
 
@@ -359,11 +575,76 @@ def dashboard(request):
 @login_required
 def send_document(request):
     if request.method == 'POST':
-        form = SendDocumentForm(request.POST, request.FILES)
+        form = SendDocumentForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             document = form.save(commit=False)
             document.sender = request.user.userprofile
             document.sender_organization = request.user.organization
+            
+            # Автоматически устанавливаем организацию получателя
+            recipient_user = document.recipient
+            if recipient_user:
+                document.recipient_organization = recipient_user.organization
+            
+            # Извлекаем информацию из документа
+            if document.document_content:
+                try:
+                    # Определяем тип файла
+                    file_path = document.document_content.path
+                    content_type = mimetypes.guess_type(file_path)[0]
+
+                    # Извлекаем текст и информацию в зависимости от типа файла
+                    if content_type == 'application/pdf':
+                        reader = PdfReader(file_path)
+                        # Получаем количество страниц
+                        document.page_count = len(reader.pages)
+                        # Получаем текст из первой страницы для краткого описания
+                        first_page = reader.pages[0]
+                        text = first_page.extract_text()
+                        # Берем первые 200 символов для краткого описания
+                        document.summary = text[:200] if text else None
+
+                    elif content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                        doc = DocxDocument(file_path)
+                        # Получаем количество параграфов как страницы
+                        document.page_count = len(doc.paragraphs)
+                        # Получаем текст из первого параграфа для краткого описания
+                        text = doc.paragraphs[0].text if doc.paragraphs else None
+                        document.summary = text[:200] if text else None
+
+                    elif content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                        df = pd.read_excel(file_path)
+                        # Считаем количество листов как страницы
+                        wb = openpyxl.load_workbook(file_path)
+                        document.page_count = len(wb.sheetnames)
+                        # Получаем первые несколько строк для краткого описания
+                        text = df.head().to_string()
+                        document.summary = text[:200] if text else None
+
+                    elif content_type == 'text/plain':
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            text = f.read()
+                            # Считаем количество строк как страницы
+                            document.page_count = len(text.splitlines())
+                            # Берем первые 200 символов для краткого описания
+                            document.summary = text[:200] if text else None
+
+                    # Устанавливаем имя документа, если оно не задано
+                    if not document.document_name:
+                        document.document_name = os.path.basename(file_path)
+
+                    # Устанавливаем метод отправки по умолчанию
+                    if not document.method:
+                        document.method = 'Внутренняя система'
+
+                except Exception as e:
+                    logger.error(f"Error extracting document info: {str(e)}")
+                    # В случае ошибки устанавливаем базовые значения
+                    if not document.summary:
+                        document.summary = _("Document content could not be extracted")
+                    if not document.page_count:
+                        document.page_count = 1
+
             document.status = 'sent'
             document.date_sent = timezone.now()
             document.save()
@@ -372,7 +653,7 @@ def send_document(request):
             UserActionLog.objects.create(
                 user=request.user,
                 action_type='send_document',
-                details=f"Sent document '{document.document_name}' to {document.recipient.username}",
+                details=f"Sent document '{document.document_name}' to {document.recipient.username} ({document.recipient_organization.name if document.recipient_organization else 'No organization'})",
                 performed_by=request.user
             )
 
@@ -380,13 +661,17 @@ def send_document(request):
             if document.recipient:
                 Notification.objects.create(
                     user=document.recipient,
-                    message=f"New document '{document.document_name}' received from {document.sender.user.username}"
+                    message=f"New document '{document.document_name}' received from {document.sender.user.username} ({document.sender_organization.name})"
                 )
 
             django_messages.success(request, _("Document sent successfully."))
             return redirect('staffs:dashboard')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    django_messages.error(request, f"{field}: {error}")
     else:
-        form = SendDocumentForm()
+        form = SendDocumentForm(user=request.user)
     return render(request, 'staffs/send.html', {'form': form})
 
 
@@ -486,18 +771,31 @@ def document_log(request):
 
         data = []
         for idx, doc in enumerate(documents, start=1):
+            # Получаем количество страниц из файла, если возможно
+            page_count = doc.page_count
+            if doc.document_content and hasattr(doc.document_content, 'path'):
+                try:
+                    if doc.document_content.path.endswith('.pdf'):
+                        reader = PdfReader(doc.document_content.path)
+                        page_count = len(reader.pages)
+                    elif doc.document_content.path.endswith('.docx'):
+                        doc_file = DocxDocument(doc.document_content.path)
+                        page_count = len(doc_file.paragraphs)
+                except Exception:
+                    pass
+
             data.append({
                 'Исходящий номер': idx,
                 'Дата исходящего номера и дату принятия': doc.date_sent.strftime('%d.%m.%Y') if doc.date_sent else '-',
-                'Адресат': doc.recipient_organization.name if doc.recipient_organization else (doc.recipient_name or '-'),
+                'Адресат': doc.recipient_organization.name if doc.recipient_organization else '-',
                 'Краткое содержание': doc.summary or '-',
-                'Количество страниц': doc.page_count,
-                'Пирожки': doc.attachment or '-',
-                'Исполнитель': doc.sender.user.username if doc.sender else '-',
-                'Способ отправки': doc.method or 'e-mail',
+                'Количество страниц': page_count or 0,
+                'Приложение': doc.document_name if doc.document_content else (doc.attachment or '-'),
+                'Исполнитель': doc.sender_organization.name if doc.sender_organization else '-',
+                'Способ отправки': doc.method or 'Внутренняя система',
                 'Дата отправки': doc.date_sent.strftime('%d.%m.%Y') if doc.date_sent else '-',
                 'Дата исполнения': doc.date_received.strftime('%d.%m.%Y') if doc.date_received else '-',
-                'Отметка о выполнении в поле': doc.note or '01-19',
+                'Отметка о выполнении': doc.note or '-',
             })
 
         df = pd.DataFrame(data)
@@ -545,25 +843,77 @@ def document_log(request):
 
     table_data = []
     for idx, doc in enumerate(documents, start=1):
+        # Получаем количество страниц из файла
+        page_count = doc.page_count
+        if doc.document_content and hasattr(doc.document_content, 'path'):
+            try:
+                if doc.document_content.path.endswith('.pdf'):
+                    reader = PdfReader(doc.document_content.path)
+                    page_count = len(reader.pages)
+                elif doc.document_content.path.endswith('.docx'):
+                    doc_file = DocxDocument(doc.document_content.path)
+                    page_count = len(doc_file.paragraphs)
+            except Exception:
+                pass
+
+        # Определяем названия организаций
+        sender_org_name = doc.sender_organization.name if doc.sender_organization else '-'
+        recipient_org_name = doc.recipient_organization.name if doc.recipient_organization else '-'
+
         table_data.append({
             'id': doc.id,
             'number': idx,
             'date_sent_accepted': doc.date_sent.strftime('%d.%m.%Y') if doc.date_sent else '-',
-            'recipient': doc.recipient_organization.name if doc.recipient_organization else (doc.recipient_name or '-'),
+            'recipient': recipient_org_name,
             'summary': doc.summary or '-',
-            'page_count': doc.page_count,
-            'attachment': doc.attachment or '-',
-            'sender': doc.sender.user.username if doc.sender else '-',
-            'method': doc.method or 'e-mail',
+            'page_count': page_count or 0,
+            'attachment': doc.document_name if doc.document_content else (doc.attachment or '-'),
+            'sender': sender_org_name,
+            'method': doc.method or 'Внутренняя система',
             'date_sent': doc.date_sent.strftime('%d.%m.%Y') if doc.date_sent else '-',
             'date_received': doc.date_received.strftime('%d.%m.%Y') if doc.date_received else '-',
-            'note': doc.note or '01-19',
+            'note': doc.note or '-',
         })
 
     context = {
         'table_data': table_data,
     }
     return render(request, 'staffs/document_log.html', context)
+
+
+@require_GET
+@login_required
+def get_suggestions(request):
+    """Возвращает подсказки для автозаполнения полей."""
+    field = request.GET.get('field')
+    query = request.GET.get('query', '').strip()
+    
+    if not query or len(query) < 2:
+        return JsonResponse({'suggestions': []})
+
+    suggestions = []
+    if field == 'recipient':
+        # Поиск по организациям
+        orgs = Organization.objects.filter(
+            name__icontains=query
+        ).values_list('name', flat=True)[:10]
+        suggestions.extend(list(orgs))
+
+    elif field == 'sender':
+        # Поиск по пользователям
+        users = User.objects.filter(
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(username__icontains=query)
+        )[:10]
+        suggestions.extend([f"{user.get_full_name()} ({user.username})" for user in users])
+
+    elif field == 'method':
+        # Предопределенные методы отправки
+        methods = ['Внутренняя система', 'Email', 'Почта России', 'Курьер', 'Факс']
+        suggestions.extend([m for m in methods if query.lower() in m.lower()])
+
+    return JsonResponse({'suggestions': suggestions})
 
 
 @require_POST
@@ -940,15 +1290,38 @@ def user_action_log(request):
 
 @login_required
 def notifications(request):
-    notifications = request.user.notifications.all().order_by('-created_at')
+    # Получаем только непрочитанные уведомления
+    notifications = request.user.notifications.filter(is_read=False).order_by('-created_at')
+    
     if request.method == 'POST' and 'mark_as_read' in request.POST:
         notification_id = request.POST.get('notification_id')
-        notification = notifications.filter(id=notification_id).first()
-        if notification:
-            notification.is_read = True
-            notification.save()
-            return JsonResponse({'status': 'success', 'message': _("Notification marked as read.")})
-        return JsonResponse({'status': 'error', 'message': _("Notification not found.")}, status=404)
+        try:
+            notification = request.user.notifications.filter(id=notification_id, is_read=False).first()
+            if notification:
+                notification.is_read = True
+                notification.save()
+                
+                # Логируем действие
+                UserActionLog.objects.create(
+                    user=request.user,
+                    action_type='read_notification',
+                    details=f"Marked notification as read: {notification.message[:100]}...",
+                    performed_by=request.user
+                )
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': _("Notification marked as read.")
+                })
+            return JsonResponse({
+                'status': 'error',
+                'message': _("Notification not found or already read.")
+            }, status=404)
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=500)
 
     # Пагинация
     paginator = Paginator(notifications, 10)
@@ -963,6 +1336,7 @@ def notifications(request):
     context = {
         'notifications': page_obj,
         'page_obj': page_obj,
+        'unread_count': notifications.count(),  # Добавляем счетчик непрочитанных уведомлений
     }
     return render(request, 'staffs/notifications.html', context)
 
@@ -1026,7 +1400,7 @@ def add_organization(request):
             )
 
             django_messages.success(request, _("Organization added successfully!"))
-            return redirect('staffs:user_management', tab='organizations')
+            return redirect(reverse('staffs:user_management') + '?tab=organizations')
     else:
         form = OrganizationCreationForm()
 
@@ -1252,6 +1626,9 @@ def backup_management(request):
         django_messages.error(request, _("Only admins can access this page."))
         return redirect('staffs:dashboard')
 
+    # Определяем тип базы данных
+    db_engine = settings.DATABASES['default']['ENGINE']
+    
     # Путь к папке для резервных копий
     backup_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
     if not os.path.exists(backup_dir):
@@ -1264,10 +1641,24 @@ def backup_management(request):
         if os.path.isfile(file_path) and filename.endswith('.sql'):
             created_at = datetime.fromtimestamp(os.path.getctime(file_path))
             size = os.path.getsize(file_path) / (1024 * 1024)  # Размер в MB
+            
+            # Определяем тип резервной копии с помощью вспомогательной функции
+            backup_type = determine_sql_file_type(file_path)
+                
+            # Упрощенная логика совместимости: 
+            # 1. Считаем все PostgreSQL резервные копии совместимыми с PostgreSQL БД
+            # 2. Считаем все SQLite резервные копии совместимыми с SQLite БД
+            # 3. Generic SQL и Unknown считаем совместимыми со всеми
+            compatible = (backup_type in ["SQL (Generic)", "Unknown"]) or \
+                   (('postgresql' in db_engine and 'PostgreSQL' in backup_type) or \
+                    ('sqlite3' in db_engine and backup_type == 'SQLite'))
+                
             backups.append({
                 'filename': filename,
                 'created_at': created_at,
                 'size': size,
+                'type': backup_type,
+                'compatible': compatible
             })
 
     # Сортировка по дате создания (от новых к старым)
@@ -1278,6 +1669,7 @@ def backup_management(request):
         'total_backups': len(backups),
         'last_backup': backups[0]['created_at'].strftime('%Y-%m-%d %H:%M:%S') if backups else None,
         'storage_used': sum(b['size'] for b in backups),
+        'current_db_type': 'SQLite' if 'sqlite3' in db_engine else ('PostgreSQL' if 'postgresql' in db_engine else 'Other'),
     }
 
     # Пагинация
@@ -1301,23 +1693,100 @@ def backup_management(request):
 def create_backup(request):
     if request.user.role != 'admin':
         return JsonResponse({'status': 'error', 'message': _("Only admins can create backups.")}, status=403)
+
     if request.method == 'POST':
         try:
-            db_path = settings.DATABASES['default']['NAME']
-            print(f"Database path: {db_path}")  # Отладка
-            if not os.path.exists(db_path):
-                return JsonResponse({'status': 'error', 'message': _("Database file not found.")}, status=404)
+            # Определяем тип базы данных
+            db_engine = settings.DATABASES['default']['ENGINE']
+            db_name = settings.DATABASES['default']['NAME']
+            
+            print(f"Database engine: {db_engine}")
+            print(f"Database name: {db_name}")
+            
+            # Создаем директорию для бэкапов, если ее нет
             backup_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
-            print(f"Backup dir: {backup_dir}")  # Отладка
+            print(f"Backup dir: {backup_dir}")
             if not os.path.exists(backup_dir):
                 os.makedirs(backup_dir)
+                
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             backup_filename = f"backup_{timestamp}.sql"
             backup_path = os.path.join(backup_dir, backup_filename)
-            print(f"Creating SQL backup: {backup_path}")  # Отладка
-            with open(backup_path, 'w', encoding='utf-8') as f:
-                process = subprocess.run(['sqlite3', db_path, '.dump'], stdout=subprocess.PIPE, text=True, check=True)
-                f.write(process.stdout)
+            print(f"Creating SQL backup: {backup_path}")
+            
+            # SQLite
+            if 'sqlite3' in db_engine:
+                print("Using SQLite backup method")
+                if not os.path.exists(db_name):
+                    return JsonResponse({'status': 'error', 'message': _("Database file not found.")}, status=404)
+                
+                # Создаем дамп SQLite
+                with open(backup_path, 'w', encoding='utf-8') as f:
+                    process = subprocess.run(['sqlite3', db_name, '.dump'], stdout=subprocess.PIPE, text=True, check=True)
+                    f.write(process.stdout)
+            
+            # PostgreSQL
+            elif 'postgresql' in db_engine:
+                print("Using PostgreSQL backup method")
+                db_user = settings.DATABASES['default']['USER']
+                db_host = settings.DATABASES['default']['HOST']
+                db_port = settings.DATABASES['default']['PORT']
+                db_password = settings.DATABASES['default']['PASSWORD']
+                
+                # Устанавливаем переменную окружения для пароля PostgreSQL
+                env = os.environ.copy()
+                env['PGPASSWORD'] = db_password
+                
+                # Ищем pg_dump нужной версии
+                pg_dump_paths = [
+                    'pg_dump',                                        # Стандартный путь
+                    '/opt/homebrew/opt/postgresql@15/bin/pg_dump',    # Homebrew PostgreSQL 15
+                    '/opt/homebrew/opt/postgresql/bin/pg_dump',       # Текущая версия Homebrew
+                    '/usr/local/bin/pg_dump',                         # Обычный путь для Homebrew
+                    '/Applications/Postgres.app/Contents/Versions/15/bin/pg_dump', # Postgres.app
+                ]
+                
+                pg_dump_cmd = None
+                for path in pg_dump_paths:
+                    try:
+                        # Проверяем версию pg_dump
+                        version_process = subprocess.run(
+                            [path, '--version'], 
+                            stdout=subprocess.PIPE, 
+                            stderr=subprocess.PIPE, 
+                            text=True,
+                            env=env)
+                        
+                        if version_process.returncode == 0 and '15.' in version_process.stdout:
+                            pg_dump_cmd = path
+                            print(f"Using pg_dump: {pg_dump_cmd}")  # Отладка
+                            break
+                    except FileNotFoundError:
+                        continue
+                
+                if not pg_dump_cmd:
+                    pg_dump_cmd = 'pg_dump'  # Используем стандартный путь, если ничего не найдено
+                    print("Warning: Could not find pg_dump 15.x, using default")
+                
+                # Выполняем команду pg_dump для создания резервной копии
+                process = subprocess.run([
+                    pg_dump_cmd,
+                    '-h', db_host,
+                    '-p', db_port,
+                    '-U', db_user,
+                    '-F', 'p',  # plain text format
+                    '-f', backup_path,
+                    db_name
+                ], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                
+                # Проверяем, если команда вернула ошибку
+                if process.returncode != 0:
+                    print(f"pg_dump error: {process.stderr}")  # Отладка
+                    return JsonResponse({'status': 'error', 'message': f"Failed to create backup: {process.stderr}"}, status=500)
+            
+            else:
+                return JsonResponse({'status': 'error', 'message': f"Unsupported database engine: {db_engine}"}, status=500)
+            
             print(f"Backup created successfully: {backup_filename}")  # Отладка
             UserActionLog.objects.create(
                 user=request.user,
@@ -1368,82 +1837,248 @@ def restore_backup(request):
             return JsonResponse({'status': 'error', 'message': _("No backup filename provided.")}, status=400)
 
         try:
+            # Определяем тип базы данных
+            db_engine = settings.DATABASES['default']['ENGINE']
+            db_name = settings.DATABASES['default']['NAME']
+            
+            print(f"Database engine: {db_engine}")
+            print(f"Database name: {db_name}")
+            
             # Путь к файлу резервной копии
             backup_path = os.path.join(settings.MEDIA_ROOT, 'backups', filename)
-            print(f"Restoring from backup: {backup_path}")  # Отладка
+            print(f"Restoring from backup: {backup_path}")
             if not os.path.exists(backup_path):
                 return JsonResponse({'status': 'error', 'message': _("Backup file not found.")}, status=404)
+            
+            # Проверяем совместимость файла с текущей базой данных
+            backup_type = determine_sql_file_type(backup_path)
+            print(f"Determined backup type: {backup_type}")
+            
+            # Упрощенная логика совместимости: 
+            # 1. Считаем все PostgreSQL резервные копии совместимыми с PostgreSQL БД
+            # 2. Считаем все SQLite резервные копии совместимыми с SQLite БД
+            # 3. Generic SQL и Unknown считаем совместимыми со всеми
+            is_compatible = (backup_type in ["SQL (Generic)", "Unknown"]) or \
+                            (('postgresql' in db_engine and 'PostgreSQL' in backup_type) or \
+                             ('sqlite3' in db_engine and backup_type == 'SQLite'))
+            
+            if not is_compatible:
+                print(f"Warning: Backup type '{backup_type}' may not be compatible with current database type '{db_engine}'")
+                # Логируем предупреждение, но продолжаем восстановление
 
-            # Проверяем права доступа к папке backups
-            backups_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
-            if not os.path.exists(backups_dir):
-                print(f"Creating backups directory: {backups_dir}")  # Отладка
-                os.makedirs(backups_dir, exist_ok=True)
-
-            if not os.access(backups_dir, os.W_OK):
-                print(f"No write permission for backups directory: {backups_dir}")  # Отладка
-                return JsonResponse({'status': 'error', 'message': _("Backups directory lacks write permissions.")}, status=500)
-
-            # Путь к текущей базе данных
-            db_path = settings.DATABASES['default']['NAME']
-            print(f"Current database path: {db_path}")  # Отладка
-
-            # Проверяем права доступа к файлу базы данных
-            if not os.access(db_path, os.W_OK):
-                print(f"No write permission for database: {db_path}")  # Отладка
-                return JsonResponse({'status': 'error', 'message': _("Database file is read-only or lacks write permissions.")}, status=500)
-
-            # Проверяем права доступа к родительской папке базы данных
-            db_dir = os.path.dirname(db_path)
-            if not os.access(db_dir, os.W_OK):
-                print(f"No write permission for database directory: {db_dir}")  # Отладка
-                return JsonResponse({'status': 'error', 'message': _("Database directory lacks write permissions.")}, status=500)
-
-            # Создаём резервную копию текущей базы перед восстановлением
+            # Создаем предварительную резервную копию перед восстановлением
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            current_backup_path = os.path.join(backups_dir, f"pre_restore_{timestamp}.sql")
-            print(f"Creating pre-restore backup: {current_backup_path}")  # Отладка
-            with open(current_backup_path, 'w', encoding='utf-8') as f:
-                process = subprocess.run(['sqlite3', db_path, '.dump'], stdout=subprocess.PIPE, text=True, check=True)
-                f.write(process.stdout)
+            pre_restore_backup = os.path.join(settings.MEDIA_ROOT, 'backups', f"pre_restore_{timestamp}.sql")
+            
+            # SQLite
+            if 'sqlite3' in db_engine:
+                print("Using SQLite restore method")
+                
+                # Проверяем права доступа к папке backups
+                backups_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
+                if not os.path.exists(backups_dir):
+                    print(f"Creating backups directory: {backups_dir}")
+                    os.makedirs(backups_dir, exist_ok=True)
 
-            # Закрываем все соединения с базой данных
-            print("Closing database connections")  # Отладка
-            connections.close_all()
+                if not os.access(backups_dir, os.W_OK):
+                    print(f"No write permission for backups directory: {backups_dir}")
+                    return JsonResponse({'status': 'error', 'message': _("Backups directory lacks write permissions.")}, status=500)
 
-            # Создаём временную базу данных
-            temp_db_path = os.path.join(settings.MEDIA_ROOT, f'temp_restore_{timestamp}.sqlite3')
-            print(f"Creating temporary database: {temp_db_path}")  # Отладка
+                # Проверяем права доступа к файлу базы данных
+                if not os.access(db_name, os.W_OK):
+                    print(f"No write permission for database: {db_name}")
+                    return JsonResponse({'status': 'error', 'message': _("Database file is read-only or lacks write permissions.")}, status=500)
 
-            # Проверяем права доступа к MEDIA_ROOT для временной базы
-            if not os.access(settings.MEDIA_ROOT, os.W_OK):
-                print(f"No write permission for media directory: {settings.MEDIA_ROOT}")  # Отладка
-                return JsonResponse({'status': 'error', 'message': _("Media directory lacks write permissions.")}, status=500)
+                # Проверяем права доступа к родительской папке базы данных
+                db_dir = os.path.dirname(db_name)
+                if not os.access(db_dir, os.W_OK):
+                    print(f"No write permission for database directory: {db_dir}")
+                    return JsonResponse({'status': 'error', 'message': _("Database directory lacks write permissions.")}, status=500)
 
-            # Создаём пустую временную базу
-            open(temp_db_path, 'a').close()
-            os.chmod(temp_db_path, 0o664)  # Устанавливаем права для временного файла
+                # Создаём резервную копию текущей базы перед восстановлением
+                print(f"Creating pre-restore backup: {pre_restore_backup}")
+                with open(pre_restore_backup, 'w', encoding='utf-8') as f:
+                    process = subprocess.run(['sqlite3', db_name, '.dump'], stdout=subprocess.PIPE, text=True, check=True)
+                    f.write(process.stdout)
 
-            # Проверяем права доступа к временной базе
-            if not os.access(temp_db_path, os.W_OK):
-                print(f"No write permission for temporary database: {temp_db_path}")  # Отладка
-                return JsonResponse({'status': 'error', 'message': _("Temporary database file lacks write permissions.")}, status=500)
+                # Закрываем все соединения с базой данных
+                print("Closing database connections")
+                connections.close_all()
 
-            # Восстанавливаем базу из SQL-дампа
-            print(f"Restoring SQL dump to temporary database: {temp_db_path}")  # Отладка
-            with open(backup_path, 'r', encoding='utf-8') as f:
-                sql_dump = f.read()
-                conn = sqlite3.connect(temp_db_path)
-                try:
-                    conn.executescript(sql_dump)
-                    conn.commit()
-                finally:
-                    conn.close()
+                # Создаём временную базу данных
+                temp_db_path = os.path.join(settings.MEDIA_ROOT, f'temp_restore_{timestamp}.sqlite3')
+                print(f"Creating temporary database: {temp_db_path}")
 
-            # Заменяем текущую базу восстановленной
-            print(f"Replacing current database with restored: {db_path}")  # Отладка
-            os.replace(temp_db_path, db_path)
+                # Проверяем права доступа к MEDIA_ROOT для временной базы
+                if not os.access(settings.MEDIA_ROOT, os.W_OK):
+                    print(f"No write permission for media directory: {settings.MEDIA_ROOT}")
+                    return JsonResponse({'status': 'error', 'message': _("Media directory lacks write permissions.")}, status=500)
 
+                # Создаём пустую временную базу
+                open(temp_db_path, 'a').close()
+                os.chmod(temp_db_path, 0o664)  # Устанавливаем права для временного файла
+
+                # Восстанавливаем базу из SQL-дампа
+                print(f"Restoring SQL dump to temporary database: {temp_db_path}")
+                with open(backup_path, 'r', encoding='utf-8') as f:
+                    sql_dump = f.read()
+                    conn = sqlite3.connect(temp_db_path)
+                    try:
+                        conn.executescript(sql_dump)
+                        conn.commit()
+                    finally:
+                        conn.close()
+
+                # Заменяем текущую базу восстановленной
+                print(f"Replacing current database with restored: {db_name}")
+                os.replace(temp_db_path, db_name)
+                
+            # PostgreSQL
+            elif 'postgresql' in db_engine:
+                print("Using PostgreSQL restore method")
+                db_user = settings.DATABASES['default']['USER']
+                db_host = settings.DATABASES['default']['HOST']
+                db_port = settings.DATABASES['default']['PORT']
+                db_password = settings.DATABASES['default']['PASSWORD']
+                
+                # Устанавливаем переменную окружения для пароля PostgreSQL
+                env = os.environ.copy()
+                env['PGPASSWORD'] = db_password
+                
+                # Ищем pg_dump и psql нужной версии
+                pg_dump_paths = [
+                    'pg_dump',                                        # Стандартный путь
+                    '/opt/homebrew/opt/postgresql@15/bin/pg_dump',    # Homebrew PostgreSQL 15
+                    '/opt/homebrew/opt/postgresql/bin/pg_dump',       # Текущая версия Homebrew
+                    '/usr/local/bin/pg_dump',                         # Обычный путь для Homebrew
+                    '/Applications/Postgres.app/Contents/Versions/15/bin/pg_dump', # Postgres.app
+                ]
+                
+                psql_paths = [
+                    'psql',                                        # Стандартный путь
+                    '/opt/homebrew/opt/postgresql@15/bin/psql',    # Homebrew PostgreSQL 15
+                    '/opt/homebrew/opt/postgresql/bin/psql',       # Текущая версия Homebrew
+                    '/usr/local/bin/psql',                         # Обычный путь для Homebrew
+                    '/Applications/Postgres.app/Contents/Versions/15/bin/psql', # Postgres.app
+                ]
+                
+                # Находим правильную версию pg_dump
+                pg_dump_cmd = None
+                for path in pg_dump_paths:
+                    try:
+                        version_process = subprocess.run(
+                            [path, '--version'], 
+                            stdout=subprocess.PIPE, 
+                            stderr=subprocess.PIPE, 
+                            text=True,
+                            env=env)
+                        
+                        if version_process.returncode == 0 and '15.' in version_process.stdout:
+                            pg_dump_cmd = path
+                            print(f"Using pg_dump: {pg_dump_cmd}")  # Отладка
+                            break
+                    except FileNotFoundError:
+                        continue
+                
+                if not pg_dump_cmd:
+                    pg_dump_cmd = 'pg_dump'  # Используем стандартный путь, если ничего не найдено
+                    print("Warning: Could not find pg_dump 15.x, using default")
+                    
+                # Находим правильную версию psql
+                psql_cmd = None
+                for path in psql_paths:
+                    try:
+                        version_process = subprocess.run(
+                            [path, '--version'], 
+                            stdout=subprocess.PIPE, 
+                            stderr=subprocess.PIPE, 
+                            text=True,
+                            env=env)
+                        
+                        if version_process.returncode == 0 and '15.' in version_process.stdout:
+                            psql_cmd = path
+                            print(f"Using psql: {psql_cmd}")  # Отладка
+                            break
+                    except FileNotFoundError:
+                        continue
+                
+                if not psql_cmd:
+                    psql_cmd = 'psql'  # Используем стандартный путь, если ничего не найдено
+                    print("Warning: Could not find psql 15.x, using default")
+                
+                # Создаем резервную копию текущего состояния перед восстановлением
+                print(f"Creating pre-restore backup: {pre_restore_backup}")  # Отладка
+                pre_backup_process = subprocess.run([
+                    pg_dump_cmd,
+                    '-h', db_host,
+                    '-p', db_port,
+                    '-U', db_user,
+                    '-F', 'p',  # plain text format
+                    '-f', pre_restore_backup,
+                    db_name
+                ], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                
+                if pre_backup_process.returncode != 0:
+                    print(f"Pre-restore backup error: {pre_backup_process.stderr}")  # Отладка
+                    return JsonResponse({'status': 'error', 'message': f"Failed to create pre-restore backup: {pre_backup_process.stderr}"}, status=500)
+                
+                # Закрываем все соединения с базой данных
+                print("Closing database connections")  # Отладка
+                connections.close_all()
+                
+                # Подготавливаем файл с опциями для psql
+                options_file = os.path.join(settings.MEDIA_ROOT, f"psql_options_{timestamp}.txt")
+                with open(options_file, 'w') as f:
+                    f.write("SET session_replication_role = 'replica';\n")  # Отключаем триггеры и ограничения
+                
+                # Очищаем существующие данные перед восстановлением
+                print("Cleaning database before restore")  # Отладка
+                clean_process = subprocess.run([
+                    psql_cmd,
+                    '-h', db_host,
+                    '-p', db_port,
+                    '-U', db_user,
+                    '-d', db_name,
+                    '-c', "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid(); DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO postgres; GRANT ALL ON SCHEMA public TO public;"
+                ], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                
+                if clean_process.returncode != 0:
+                    os.unlink(options_file)
+                    print(f"Error cleaning database: {clean_process.stderr}")  # Отладка
+                    return JsonResponse({'status': 'error', 'message': f"Failed to clean database before restore: {clean_process.stderr}"}, status=500)
+                
+                # Восстанавливаем базу из SQL-дампа с дополнительными опциями
+                print(f"Restoring database from backup")  # Отладка
+                restore_process = subprocess.run([
+                    psql_cmd,
+                    '-h', db_host,
+                    '-p', db_port,
+                    '-U', db_user,
+                    '-d', db_name,
+                    '-f', options_file,
+                    '-f', backup_path
+                ], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                
+                # Удаляем временный файл с опциями
+                os.unlink(options_file)
+                
+                if restore_process.returncode != 0:
+                    print(f"Restore error: {restore_process.stderr}")  # Отладка
+                    return JsonResponse({'status': 'error', 'message': f"Failed to restore database: {restore_process.stderr}"}, status=500)
+                
+                # Включаем триггеры и ограничения обратно
+                post_restore_process = subprocess.run([
+                    psql_cmd,
+                    '-h', db_host,
+                    '-p', db_port,
+                    '-U', db_user,
+                    '-d', db_name,
+                    '-c', "SET session_replication_role = 'origin';"
+                ], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            
+            else:
+                return JsonResponse({'status': 'error', 'message': f"Unsupported database engine: {db_engine}"}, status=500)
+            
             # Логирование
             UserActionLog.objects.create(
                 user=request.user,
@@ -1491,3 +2126,1086 @@ def delete_backup(request):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     return JsonResponse({'status': 'error', 'message': _("Invalid request method.")}, status=400)
+@require_POST
+@login_required
+def reset_document_data(request):
+    """Сбрасывает данные документа к исходному состоянию."""
+    if not request.user.organization.is_prime_tech:
+        return JsonResponse({'status': 'error', 'message': _("Only PrimeTech organizations can reset document data.")}, status=403)
+
+    try:
+        # Получаем все документы организации
+        documents = Document.objects.filter(
+            Q(sender_organization=request.user.organization) | 
+            Q(recipient_organization=request.user.organization)
+        ).order_by('date_sent')
+
+        table_data = []
+        for idx, doc in enumerate(documents, start=1):
+            # Получаем количество страниц из файла
+            page_count = doc.page_count
+            if doc.document_content and hasattr(doc.document_content, 'path'):
+                try:
+                    if doc.document_content.path.endswith('.pdf'):
+                        from PyPDF2 import PdfReader
+                        reader = PdfReader(doc.document_content.path)
+                        page_count = len(reader.pages)
+                    elif doc.document_content.path.endswith('.docx'):
+                        from docx import Document as DocxDocument
+                        doc_file = DocxDocument(doc.document_content.path)
+                        page_count = len(doc_file.paragraphs)
+                except Exception:
+                    pass
+
+            # Определяем названия организаций
+            sender_org_name = doc.sender_organization.name if doc.sender_organization else '-'
+            recipient_org_name = doc.recipient_organization.name if doc.recipient_organization else '-'
+
+            # Формируем данные для таблицы
+            table_data.append({
+                'id': doc.id,
+                'number': idx,
+                'date_sent_accepted': doc.date_sent.strftime('%d.%m.%Y') if doc.date_sent else '-',
+                'recipient': recipient_org_name,  # Используем название организации-получателя
+                'summary': doc.summary or '-',
+                'page_count': page_count or 0,
+                'attachment': doc.document_name if doc.document_content else (doc.attachment or '-'),
+                'sender': sender_org_name,  # Используем название организации-отправителя
+                'method': doc.method or 'Внутренняя система',
+                'date_sent': doc.date_sent.strftime('%d.%m.%Y') if doc.date_sent else '-',
+                'date_received': doc.date_received.strftime('%d.%m.%Y') if doc.date_received else '-',
+                'note': doc.note or '-',
+            })
+
+        # Логируем действие
+        UserActionLog.objects.create(
+            user=request.user,
+            action_type='reset_document_data',
+            details="Reset document data to original state",
+            performed_by=request.user
+        )
+
+        return JsonResponse({
+            'status': 'success',
+            'message': _("Document data has been reset successfully."),
+            'table_data': table_data
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+@require_POST
+@login_required
+def edit_user(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': _("Only admins can edit users.")}, status=403)
+
+    user_id = request.POST.get('user_id')
+    try:
+        user = User.objects.get(id=user_id)
+        new_username = request.POST.get('username')
+        new_role = request.POST.get('role')
+        new_org_id = request.POST.get('organization')
+
+        # Проверяем, не существует ли уже пользователь с таким именем
+        if User.objects.filter(username=new_username).exclude(id=user_id).exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': _("A user with this username already exists.")
+            }, status=400)
+
+        # Обновляем данные пользователя
+        user.username = new_username
+        user.role = new_role
+        
+        # Обновляем организацию
+        if new_org_id:
+            try:
+                organization = Organization.objects.get(id=new_org_id)
+                user.organization = organization
+            except Organization.DoesNotExist:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': _("Selected organization does not exist.")
+                }, status=400)
+        else:
+            user.organization = None
+
+        user.save()
+
+        # Логируем изменение
+        UserActionLog.objects.create(
+            user=request.user,
+            action_type='edit_user',
+            details=f"Edited user '{user.username}'",
+            performed_by=request.user
+        )
+
+        return JsonResponse({
+            'status': 'success',
+            'message': _("User updated successfully."),
+            'user': {
+                'username': user.username,
+                'role': user.get_role_display(),
+                'organization': user.organization.name if user.organization else None
+            }
+        })
+    except User.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': _("User not found.")}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@require_POST
+@login_required
+def change_password(request):
+    if request.user.role != 'admin':
+        return JsonResponse({'status': 'error', 'message': _("Only admins can change user passwords.")}, status=403)
+
+    user_id = request.POST.get('user_id')
+    new_password = request.POST.get('new_password')
+
+    if not new_password or len(new_password) < 8:
+        return JsonResponse({
+            'status': 'error',
+            'message': _("Password must be at least 8 characters long.")
+        }, status=400)
+
+    try:
+        user = User.objects.get(id=user_id)
+        user.set_password(new_password)
+        user.save()
+
+        # Log the password change
+        UserActionLog.objects.create(
+            user=request.user,
+            action_type='change_password',
+            details=f"Changed password for user '{user.username}'",
+            performed_by=request.user
+        )
+
+        return JsonResponse({
+            'status': 'success',
+            'message': _("Password changed successfully.")
+        })
+    except User.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': _("User not found.")}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+def templates_list(request):
+    """Отображает список шаблонов документов"""
+    user = request.user
+    organization = user.organization
+    
+    # Получаем шаблоны, доступные пользователю
+    # Это собственные шаблоны организации и публичные шаблоны других организаций
+    templates = DocumentTemplate.objects.filter(
+        Q(organization=organization) | 
+        Q(is_public=True)
+    ).order_by('-created_at')
+    
+    # Фильтры
+    category_filter = request.GET.get('category', '')
+    search_query = request.GET.get('search', '')
+    
+    if category_filter:
+        templates = templates.filter(category=category_filter)
+    
+    if search_query:
+        templates = templates.filter(
+            Q(name__icontains=search_query) | 
+            Q(description__icontains=search_query)
+        )
+    
+    # Пагинация
+    paginator = Paginator(templates, 12)
+    page_number = request.GET.get('page')
+    try:
+        page_obj = paginator.page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+    
+    context = {
+        'templates': page_obj,
+        'categories': DocumentTemplate.TEMPLATE_CATEGORIES,
+        'current_category': category_filter,
+        'search_query': search_query,
+        'can_create': user.role in ['admin', 'manager'],
+    }
+    
+    return render(request, 'staffs/templates_list.html', context)
+
+
+@login_required
+def template_detail(request, template_id):
+    """Отображает детали шаблона и позволяет создать документ на его основе"""
+    template = get_object_or_404(DocumentTemplate, id=template_id)
+    user = request.user
+    organization = user.organization
+    
+    # Проверка доступа
+    if template.organization != organization and not template.is_public:
+        django_messages.error(request, _("У вас нет доступа к этому шаблону."))
+        return redirect('staffs:templates_list')
+    
+    if request.method == 'POST':
+        # Создание документа на основе шаблона
+        document = Document(
+            document_name=request.POST.get('document_name'),
+            document_description=request.POST.get('document_description'),
+            sender=user.userprofile,
+            sender_organization=organization,
+            template=template,
+            category=template.category,
+            status='draft'
+        )
+        
+        # Копируем файл шаблона
+        if template.template_file:
+            # Получаем расширение файла
+            extension = os.path.splitext(template.template_file.path)[1]
+            # Создаем временный файл
+            with tempfile.NamedTemporaryFile(suffix=extension, delete=False) as temp_file:
+                temp_file.write(template.template_file.read())
+                temp_path = temp_file.name
+            
+            # Сохраняем в поле документа
+            with open(temp_path, 'rb') as f:
+                filename = f"{document.document_name}{extension}"
+                document.document_content.save(filename, File(f))
+            
+            # Удаляем временный файл
+            os.unlink(temp_path)
+        
+        document.save()
+        
+        # Создаем первую версию документа
+        if document.document_content:
+            version = DocumentVersion(
+                document=document,
+                version_number=1,
+                created_by=user,
+                comment="Первая версия на основе шаблона"
+            )
+            # Копируем файл документа в версию
+            with open(document.document_content.path, 'rb') as f:
+                version.content.save(os.path.basename(document.document_content.name), File(f))
+            version.save()
+        
+        # Логируем создание документа
+        UserActionLog.objects.create(
+            user=user,
+            action_type='create_from_template',
+            details=f"Создан документ '{document.document_name}' на основе шаблона '{template.name}'",
+            performed_by=user
+        )
+        
+        django_messages.success(request, _("Документ успешно создан на основе шаблона."))
+        return redirect('staffs:document-detail', document_id=document.id)
+    
+    context = {
+        'template': template,
+        'can_edit': template.organization == organization and user.role in ['admin', 'manager'],
+    }
+    
+    return render(request, 'staffs/template_detail.html', context)
+
+
+@login_required
+def template_create(request):
+    """Создание нового шаблона документа"""
+    user = request.user
+    
+    # Проверка прав
+    if user.role not in ['admin', 'manager']:
+        django_messages.error(request, _("У вас нет прав на создание шаблонов."))
+        return redirect('staffs:templates_list')
+    
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        category = request.POST.get('category')
+        description = request.POST.get('description')
+        is_public = 'is_public' in request.POST
+        template_file = request.FILES.get('template_file')
+        
+        if not name or not template_file:
+            django_messages.error(request, _("Название и файл шаблона обязательны для заполнения."))
+        else:
+            template = DocumentTemplate(
+                name=name,
+                category=category,
+                description=description,
+                is_public=is_public,
+                created_by=user,
+                organization=user.organization,
+                template_file=template_file
+            )
+            template.save()
+            
+            # Логируем создание шаблона
+            UserActionLog.objects.create(
+                user=user,
+                action_type='create_template',
+                details=f"Создан шаблон документа '{template.name}'",
+                performed_by=user
+            )
+            
+            django_messages.success(request, _("Шаблон документа успешно создан."))
+            return redirect('staffs:template_detail', template_id=template.id)
+    
+    context = {
+        'categories': DocumentTemplate.TEMPLATE_CATEGORIES,
+    }
+    
+    return render(request, 'staffs/template_create.html', context)
+
+
+@login_required
+def template_edit(request, template_id):
+    """Редактирование шаблона документа"""
+    user = request.user
+    template = get_object_or_404(DocumentTemplate, id=template_id)
+    
+    # Проверка прав
+    if template.organization != user.organization or user.role not in ['admin', 'manager']:
+        django_messages.error(request, _("У вас нет прав на редактирование этого шаблона."))
+        return redirect('staffs:templates_list')
+    
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        category = request.POST.get('category')
+        description = request.POST.get('description')
+        is_public = 'is_public' in request.POST
+        template_file = request.FILES.get('template_file')
+        
+        if not name:
+            django_messages.error(request, _("Название шаблона обязательно для заполнения."))
+        else:
+            template.name = name
+            template.category = category
+            template.description = description
+            template.is_public = is_public
+            
+            if template_file:
+                template.template_file = template_file
+                
+            template.save()
+            
+            # Логируем редактирование шаблона
+            UserActionLog.objects.create(
+                user=user,
+                action_type='edit_template',
+                details=f"Отредактирован шаблон документа '{template.name}'",
+                performed_by=user
+            )
+            
+            django_messages.success(request, _("Шаблон документа успешно обновлен."))
+            return redirect('staffs:template_detail', template_id=template.id)
+    
+    context = {
+        'template': template,
+        'categories': DocumentTemplate.TEMPLATE_CATEGORIES,
+    }
+    
+    return render(request, 'staffs/template_edit.html', context)
+
+
+@login_required
+@require_POST
+def template_delete(request, template_id):
+    """Удаление шаблона документа"""
+    user = request.user
+    template = get_object_or_404(DocumentTemplate, id=template_id)
+    
+    # Проверка прав
+    if template.organization != user.organization or user.role not in ['admin', 'manager']:
+        django_messages.error(request, _("У вас нет прав на удаление этого шаблона."))
+        return redirect('staffs:templates_list')
+    
+    template_name = template.name
+    template.delete()
+    
+    # Логируем удаление шаблона
+    UserActionLog.objects.create(
+        user=user,
+        action_type='delete_template',
+        details=f"Удален шаблон документа '{template_name}'",
+        performed_by=user
+    )
+    
+    django_messages.success(request, _("Шаблон документа успешно удален."))
+    return redirect('staffs:templates_list')
+
+@login_required
+def document_versions(request, document_id):
+    """Отображает список версий документа"""
+    document = get_object_or_404(Document, id=document_id)
+    user = request.user
+    organization = user.organization
+    
+    # Проверка доступа к документу
+    has_access = False
+    if organization.is_prime_tech:
+        has_access = (
+            document.sender_organization == organization or
+            document.recipient_organization == organization
+        )
+    else:
+        has_access = (
+            (document.sender == user.userprofile or document.recipient == user) and
+            (document.sender_organization == organization or document.recipient_organization == organization)
+        )
+    
+    if not has_access:
+        django_messages.error(request, _("У вас нет доступа к этому документу."))
+        return redirect('staffs:dashboard')
+    
+    # Получаем все версии документа
+    versions = document.versions.all().order_by('-version_number')
+    
+    context = {
+        'document': document,
+        'versions': versions,
+        'can_add_version': document.sender == user.userprofile or (organization.is_prime_tech and user.role in ['admin', 'manager']),
+    }
+    
+    return render(request, 'staffs/document_versions.html', context)
+
+
+@login_required
+def version_detail(request, document_id, version_number):
+    """Отображает детали версии документа"""
+    document = get_object_or_404(Document, id=document_id)
+    user = request.user
+    organization = user.organization
+    
+    # Проверка доступа к документу
+    has_access = False
+    if organization.is_prime_tech:
+        has_access = (
+            document.sender_organization == organization or
+            document.recipient_organization == organization
+        )
+    else:
+        has_access = (
+            (document.sender == user.userprofile or document.recipient == user) and
+            (document.sender_organization == organization or document.recipient_organization == organization)
+        )
+    
+    if not has_access:
+        django_messages.error(request, ("У вас нет доступа к этому документу."))
+        return redirect('staffs:dashboard')
+    
+    # Получаем версию
+    try:
+        version = DocumentVersion.objects.get(document=document, version_number=version_number)
+    except DocumentVersion.DoesNotExist:
+        django_messages.error(request, ("Запрашиваемая версия документа не найдена."))
+        return redirect('staffs:document_versions', document_id=document_id)
+    
+    # Получаем подписи этой версии
+    signatures = version.signatures.all().select_related('signer', 'certificate')
+    
+    # Формируем контекст для отображения предпросмотра
+    page_images_base64 = []
+    if version.content:
+        file_path = version.content.path
+        if os.path.exists(file_path):
+            content_type, _ = mimetypes.guess_type(file_path)
+            try:
+                if content_type == 'application/pdf':
+                    images = convert_from_path(file_path, dpi=200)
+                    for img in images:
+                        buffered = io.BytesIO()
+                        img.save(buffered, format="PNG")
+                        img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                        page_images_base64.append(img_base64)
+                elif content_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                     'text/plain']:
+                    # Используем существующую функцию text_to_images для предпросмотра
+                    try:
+                        if content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                            doc = DocxDocument(file_path)
+                            text = '\n'.join([p.text for p in doc.paragraphs if p.text.strip()])
+                        elif content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                            df = pd.read_excel(file_path)
+                            text = df.to_string(index=False)
+                        else:  # text/plain
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                text = f.read()
+                        
+                        images = text_to_images(text, width=800, height=1200)
+                        for img in images:
+                            buffered = io.BytesIO()
+                            img.save(buffered, format="PNG")
+                            img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                            page_images_base64.append(img_base64)
+                    except Exception as e:
+                        logger.error(f"Error generating preview: {str(e)}")
+                        django_messages.warning(request, _("Не удалось создать предпросмотр для этого типа файла."))
+                else:
+                    django_messages.warning(request, _("Предпросмотр недоступен для этого типа файла."))
+            except Exception as e:
+                logger.error(f"Error generating preview: {str(e)}")
+                django_messages.error(request, _("Ошибка при создании предпросмотра: ") + str(e))
+    
+    context = {
+        'document': document,
+        'version': version,
+        'signatures': signatures,
+        'can_sign': user.certificates.filter(certificate_type='user').exists(),
+        'can_restore': document.sender == user.userprofile,
+        'page_images': page_images_base64,
+    }
+    
+    return render(request, 'staffs/version_detail.html', context)
+
+
+@login_required
+def version_preview(request, document_id, version_number):
+    """
+    API endpoint для получения превью версии документа для сравнения
+    Возвращает JSON с данными для отображения
+    """
+    document = get_object_or_404(Document, id=document_id)
+    user = request.user
+    organization = user.organization
+    
+    # Проверка доступа к документу
+    has_access = False
+    if organization.is_prime_tech:
+        has_access = (
+            document.sender_organization == organization or
+            document.recipient_organization == organization
+        )
+    else:
+        has_access = (
+            (document.sender == user.userprofile or document.recipient == user) and
+            (document.sender_organization == organization or document.recipient_organization == organization)
+        )
+    
+    if not has_access:
+        return JsonResponse({
+            'status': 'error',
+            'message': ("У вас нет доступа к этому документу.")
+        })
+    
+    # Получаем версию
+    try:
+        version = DocumentVersion.objects.get(document=document, version_number=version_number)
+    except DocumentVersion.DoesNotExist:
+        return JsonResponse({
+            'status': 'error',
+            'message': ("Запрашиваемая версия документа не найдена.")
+        })
+    
+    # Формируем данные для JSON-ответа
+    page_images_base64 = []
+    text_content = None
+    html_content = None
+    
+    if version.content:
+        file_path = version.content.path
+        if os.path.exists(file_path):
+            content_type, _ = mimetypes.guess_type(file_path)
+            try:
+                # Обработка PDF файлов
+                if content_type == 'application/pdf':
+                    images = convert_from_path(file_path, dpi=200)
+                    for img in images:
+                        buffered = io.BytesIO()
+                        img.save(buffered, format="PNG")
+                        img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                        page_images_base64.append(img_base64)
+                
+                # Обработка DOCX/DOC файлов - конвертируем в PDF с сохранением форматирования
+                elif content_type in ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword']:
+                    # Создаем временный файл для PDF
+                    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+                        temp_pdf_path = temp_pdf.name
+                    
+                    try:
+                        # Используем улучшенную функцию конвертации
+                        conversion_success = convert_docx_to_pdf(file_path, temp_pdf_path)
+                        
+                        # Если конвертация удалась, генерируем изображения страниц
+                        if conversion_success:
+                            # Используем более высокое разрешение для лучшего качества
+                            images = convert_from_path(temp_pdf_path, dpi=300)
+                            for img in images:
+                                buffered = io.BytesIO()
+                                img.save(buffered, format="PNG", quality=95)  # Высокое качество
+                                img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                                page_images_base64.append(img_base64)
+                        else:
+                            # Если конвертация не удалась, используем резервный метод text_to_images
+                            logger.warning(f"Failed to convert DOCX to PDF, using fallback method")
+                            doc = DocxDocument(file_path)
+                            text = '\n'.join([p.text for p in doc.paragraphs if p.text.strip()])
+                            if not text:
+                                logger.warning(f"DOCX file is empty: {file_path}")
+                                django_messages.warning(request, ("The DOCX file is empty or contains no readable text."))
+                            else:
+                                images = text_to_images(text, width=800, height=1200)
+                                for img in images:
+                                    buffered = io.BytesIO()
+                                    img.save(buffered, format="PNG")
+                                    img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                                    page_images_base64.append(img_base64)
+                    finally:
+                        # Удаляем временный PDF файл
+                        if os.path.exists(temp_pdf_path):
+                            os.unlink(temp_pdf_path)
+                
+                elif content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                    df = pd.read_excel(file_path)
+                    text_content = df.to_string(index=False)
+                    
+                    # Создаем HTML таблицу с улучшенным форматированием
+                    html_content = '<div class="overflow-x-auto">'
+                    html_content += df.to_html(
+                        classes='min-w-full divide-y divide-gray-200 border', 
+                        index=False,
+                        justify='center',
+                        bold_rows=True,
+                        border=1
+                    ).replace('<table', '<table class="min-w-full divide-y divide-gray-200"')
+                    html_content += '</div>'
+                
+                elif content_type == 'text/plain':
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        text_content = f.read()
+                    
+                    # Создаем HTML структуру для текста
+                    paragraphs = text_content.split('\n')
+                    html_paragraphs = []
+                    for p in paragraphs:
+                        if p.strip():
+                            html_paragraphs.append(f'<p class="my-2">{p}</p>')
+                        else:
+                            html_paragraphs.append('<div class="h-4"></div>')  # Пустая строка как отступ
+                    
+                    html_content = f'<div class="document-content prose max-w-none">{" ".join(html_paragraphs)}</div>'
+                
+                else:
+                    return JsonResponse({
+                        'status': 'warning',
+                        'message': _("Предпросмотр недоступен для этого типа файла.")
+                    })
+            
+            except Exception as e:
+                logger.error(f"Ошибка при создании предпросмотра для {file_path}: {str(e)}", exc_info=True)
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f"{_('Ошибка при создании предпросмотра:')} {str(e)}"
+                })
+        else:
+            return JsonResponse({
+                'status': 'error',
+                'message': ("Файл не найден на сервере.")
+            })
+    else:
+        return JsonResponse({
+            'status': 'warning',
+            'message': ("Нет файла, прикрепленного к этой версии.")
+        })
+
+    return JsonResponse({
+        'status': 'success',
+        'images': page_images_base64,
+        'text_content': text_content,
+        'html_content': html_content,
+        'file_name': os.path.basename(version.content.name) if version.content else "",
+        'version': version.version_number
+    })
+
+
+@login_required
+def sign_document(request, document_id, version_number=None):
+    """Подписывает документ или конкретную версию документа"""
+    document = get_object_or_404(Document, id=document_id)
+    user = request.user
+    organization = user.organization
+    
+    # Проверка доступа
+    has_access = False
+    if organization.is_prime_tech:
+        has_access = (
+            document.sender_organization == organization or
+            document.recipient_organization == organization
+        )
+    else:
+        has_access = (
+            (document.sender == user.userprofile or document.recipient == user) and
+            (document.sender_organization == organization or document.recipient_organization == organization)
+        )
+    
+    if not has_access:
+        django_messages.error(request, _("У вас нет доступа к этому документу."))
+        return redirect('staffs:dashboard')
+    
+    if request.method == 'POST':
+        form = SendDocumentForm(request.POST, request.FILES, user=request.user)
+        if form.is_valid():
+            document = form.save(commit=False)
+            document.sender = request.user.userprofile
+            document.sender_organization = request.user.organization
+            
+            # Автоматически устанавливаем организацию получателя
+            recipient_user = document.recipient
+            if recipient_user:
+                document.recipient_organization = recipient_user.organization
+            
+            # Извлекаем информацию из документа
+            if document.document_content:
+                try:
+                    # Определяем тип файла
+                    file_path = document.document_content.path
+                    content_type = mimetypes.guess_type(file_path)[0]
+
+                    # Извлекаем текст и информацию в зависимости от типа файла
+                    if content_type == 'application/pdf':
+                        reader = PdfReader(file_path)
+                        # Получаем количество страниц
+                        document.page_count = len(reader.pages)
+                        # Получаем текст из первой страницы для краткого описания
+                        first_page = reader.pages[0]
+                        text = first_page.extract_text()
+                        # Берем первые 200 символов для краткого описания
+                        document.summary = text[:200] if text else None
+
+                    elif content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                        doc = DocxDocument(file_path)
+                        # Получаем количество параграфов как страницы
+                        document.page_count = len(doc.paragraphs)
+                        # Получаем текст из первого параграфа для краткого описания
+                        text = doc.paragraphs[0].text if doc.paragraphs else None
+                        document.summary = text[:200] if text else None
+
+                    elif content_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+                        df = pd.read_excel(file_path)
+                        # Считаем количество листов как страницы
+                        wb = openpyxl.load_workbook(file_path)
+                        document.page_count = len(wb.sheetnames)
+                        # Получаем первые несколько строк для краткого описания
+                        text = df.head().to_string()
+                        document.summary = text[:200] if text else None
+
+                    elif content_type == 'text/plain':
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            text = f.read()
+                            # Считаем количество строк как страницы
+                            document.page_count = len(text.splitlines())
+                            # Берем первые 200 символов для краткого описания
+                            document.summary = text[:200] if text else None
+
+                    # Устанавливаем имя документа, если оно не задано
+                    if not document.document_name:
+                        document.document_name = os.path.basename(file_path)
+
+                    # Устанавливаем метод отправки по умолчанию
+                    if not document.method:
+                        document.method = 'Внутренняя система'
+
+                except Exception as e:
+                    logger.error(f"Error extracting document info: {str(e)}")
+                    # В случае ошибки устанавливаем базовые значения
+                    if not document.summary:
+                        document.summary = _("Document content could not be extracted")
+                    if not document.page_count:
+                        document.page_count = 1
+
+            document.status = 'sent'
+            document.date_sent = timezone.now()
+            document.save()
+
+            # Логирование действия отправки документа
+            UserActionLog.objects.create(
+                user=request.user,
+                action_type='send_document',
+                details=f"Sent document '{document.document_name}' to {document.recipient.username} ({document.recipient_organization.name if document.recipient_organization else 'No organization'})",
+                performed_by=request.user
+            )
+
+            # Создаём уведомление для получателя
+            if document.recipient:
+                Notification.objects.create(
+                    user=document.recipient,
+                    message=f"New document '{document.document_name}' received from {document.sender.user.username} ({document.sender_organization.name})"
+                )
+
+            django_messages.success(request, _("Document sent successfully."))
+            return redirect('staffs:dashboard')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    django_messages.error(request, f"{field}: {error}")
+    else:
+        form = SendDocumentForm(user=request.user)
+    return render(request, 'staffs/send.html', {'form': form})
+
+
+@login_required
+def verify_signature(request, signature_id):
+    """Проверяет действительность подписи"""
+    signature = get_object_or_404(DigitalSignature, id=signature_id)
+    
+    # Здесь будет реальная логика проверки подписи
+    # В данном примере просто обновляем дату проверки
+    
+    signature.validation_date = timezone.now()
+    signature.save()
+    
+    # Логируем проверку подписи
+    UserActionLog.objects.create(
+        user=request.user,
+        action_type='verify_signature',
+        details=f"Проверена подпись документа '{signature.document.document_name}' от пользователя {signature.signer.username}",
+        performed_by=request.user
+    )
+    
+    status = "действительна" if signature.is_valid else "недействительна"
+    django_messages.info(request, _(f"Подпись {status}. Последняя проверка: {signature.validation_date}"))
+    
+    # Возвращаемся на страницу, с которой был запрос
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
+    else:
+        return redirect('staffs:document_detail', document_id=signature.document.id)
+
+@login_required
+def create_version(request, document_id):
+    """Создание новой версии документа"""
+    document = get_object_or_404(Document, id=document_id)
+    user = request.user
+    organization = user.organization
+    
+    # Проверка доступа и прав на создание новой версии
+    has_access = False
+    if document.sender == user.userprofile or (organization.is_prime_tech and user.role in ['admin', 'manager']):
+        has_access = True
+    
+    if not has_access:
+        django_messages.error(request, _("У вас нет прав на создание новой версии этого документа."))
+        return redirect('staffs:document-detail', document_id=document_id)
+    
+    if request.method == 'POST':
+        try:
+            # Получаем новый файл и комментарий
+            new_file = request.FILES.get('document_file')
+            comment = request.POST.get('comment', '')
+            
+            if not new_file:
+                django_messages.error(request, _("Необходимо предоставить файл для новой версии."))
+                return render(request, 'staffs/create_version.html', {'document': document})
+            
+            # Получаем последнюю версию документа
+            latest_version = document.versions.order_by('-version_number').first()
+            new_version_number = 1
+            if latest_version:
+                new_version_number = latest_version.version_number + 1
+            
+            # Создаем временную копию файла
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                for chunk in new_file.chunks():
+                    temp_file.write(chunk)
+                temp_path = temp_file.name
+            
+            # Создаем новую версию, используя сохраненный временный файл
+            with open(temp_path, 'rb') as f:
+                version = DocumentVersion(
+                    document=document,
+                    version_number=new_version_number,
+                    created_by=user,
+                    comment=comment
+                )
+                # Явно сохраняем содержимое в поле файла
+                filename = os.path.basename(new_file.name)
+                version.content.save(filename, File(f))
+                version.save()
+                
+                # Перематываем файл в начало для повторного использования
+                f.seek(0)
+                # Обновляем основной файл документа текущей версией
+                document.document_content.save(filename, File(f))
+            
+            # Удаляем временный файл
+            os.unlink(temp_path)
+            
+            # Сохраняем документ после обновления файла
+            document.save()
+            
+            # Логируем создание новой версии
+            UserActionLog.objects.create(
+                user=user,
+                action_type='create_version',
+                details=f"Создана новая версия {new_version_number} для документа '{document.document_name}'",
+                performed_by=user
+            )
+            
+            django_messages.success(request, _(f"Версия {new_version_number} успешно создана."))
+            return redirect('staffs:document_versions', document_id=document_id)
+            
+        except Exception as e:
+            logger.error(f"Ошибка при создании версии документа: {str(e)}", exc_info=True)
+            django_messages.error(request, _(f"Произошла ошибка при создании версии: {str(e)}"))
+            return render(request, 'staffs/create_version.html', {'document': document})
+    
+    return render(request, 'staffs/create_version.html', {'document': document})
+
+
+@login_required
+def restore_version(request, document_id, version_number):
+    """Восстановление предыдущей версии документа"""
+    document = get_object_or_404(Document, id=document_id)
+    user = request.user
+    
+    # Проверка доступа
+    if document.sender != user.userprofile and not (user.organization.is_prime_tech and user.role in ['admin', 'manager']):
+        django_messages.error(request, _("У вас нет прав на восстановление версий этого документа."))
+        return redirect('staffs:document_versions', document_id=document_id)
+    
+    try:
+        # Получаем версию, которую нужно восстановить
+        old_version = DocumentVersion.objects.get(document=document, version_number=version_number)
+        
+        # Получаем последнюю версию
+        latest_version = document.versions.order_by('-version_number').first()
+        new_version_number = latest_version.version_number + 1 if latest_version else 1
+        
+        # Создаем временную копию файла
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            with old_version.content.open('rb') as content_file:
+                temp_file.write(content_file.read())
+            temp_path = temp_file.name
+        
+        # Создаем новую версию на основе старой
+        with open(temp_path, 'rb') as f:
+            # Создаем новую версию
+            new_version = DocumentVersion(
+                document=document,
+                version_number=new_version_number,
+                created_by=user,
+                comment=f"Восстановлено из версии {version_number}"
+            )
+            
+            filename = os.path.basename(old_version.content.name)
+            new_version.content.save(filename, File(f))
+            new_version.save()
+            
+            # Перематываем файл в начало для повторного использования
+            f.seek(0)
+            # Обновляем основной файл документа
+            document.document_content.save(filename, File(f))
+        
+        # Удаляем временный файл
+        os.unlink(temp_path)
+        
+        # Логируем восстановление версии
+        UserActionLog.objects.create(
+            user=user,
+            action_type='restore_version',
+            details=f"Восстановлена версия {version_number} для документа '{document.document_name}'",
+            performed_by=user
+        )
+        
+        django_messages.success(request, _(f"Версия {version_number} успешно восстановлена как версия {new_version_number}."))
+    except DocumentVersion.DoesNotExist:
+        django_messages.error(request, _("Указанная версия не найдена."))
+    except Exception as e:
+        logger.error(f"Ошибка при восстановлении версии документа: {str(e)}", exc_info=True)
+        django_messages.error(request, _(f"Произошла ошибка при восстановлении версии: {str(e)}"))
+    
+    return redirect('staffs:document_versions', document_id=document_id)
+
+# Добавляем функцию определения типа SQL файла
+def determine_sql_file_type(file_path):
+    """
+    Определяет тип SQL файла: SQLite, PostgreSQL или Generic SQL
+    
+    Args:
+        file_path: путь к SQL файлу
+        
+    Returns:
+        Строка с типом: "SQLite", "PostgreSQL", "PostgreSQL (15)", "SQL (Generic)" или "Unknown"
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read(4000)  # Читаем больше контента для более точного определения
+            
+            # SQLite маркеры
+            sqlite_markers = [
+                'BEGIN TRANSACTION;',
+                'PRAGMA foreign_keys=',
+                'sqlite_sequence',
+                '.schema',
+                'CREATE TABLE sqlite_',
+                'COMMIT;'  # Очень часто используется в SQLite дампах
+            ]
+            
+            # PostgreSQL маркеры
+            postgres_markers = [
+                'pg_dump',
+                'PostgreSQL database dump',
+                'SET statement_timeout',
+                'SET lock_timeout',
+                'SET client_encoding',
+                'SET standard_conforming_strings',
+                'CREATE EXTENSION',
+                'ALTER TABLE ONLY',
+                'SCHEMA public',
+                'pg_catalog'
+            ]
+            
+            # Проверка версии PostgreSQL
+            pg_version = None
+            pg_version_matches = [
+                r'PostgreSQL database dump.*(\d+)\.(\d+)',  # Ищем номер версии
+                r'pg_dump.*(\d+)\.(\d+)',  # Ищем номер версии в выводе pg_dump
+            ]
+            
+            for pattern in pg_version_matches:
+                import re
+                match = re.search(pattern, content)
+                if match:
+                    major_version = match.group(1)
+                    pg_version = major_version
+                    break
+            
+            # Проверяем наличие маркеров SQLite - любой из них подтверждает тип
+            for marker in sqlite_markers:
+                if marker in content:
+                    return "SQLite"
+            
+            # Проверяем наличие маркеров PostgreSQL
+            for marker in postgres_markers:
+                if marker in content:
+                    if pg_version:
+                        return f"PostgreSQL ({pg_version})"
+                    return "PostgreSQL"
+            
+            # Проверяем общие SQL команды
+            if ('CREATE TABLE' in content or 
+                'INSERT INTO' in content or 
+                'ALTER TABLE' in content or
+                'SELECT ' in content):
+                # Если файл содержит типичные структуры SQLite
+                if 'integer primary key autoincrement' in content.lower():
+                    return "SQLite"
+                # Если файл содержит типичные структуры PostgreSQL
+                elif 'serial primary key' in content.lower() or 'bigserial' in content.lower():
+                    return "PostgreSQL"
+                return "SQL (Generic)"
+                
+            return "Unknown"
+    except Exception as e:
+        print(f"Error determining SQL file type: {str(e)}")
+        return "Unknown"

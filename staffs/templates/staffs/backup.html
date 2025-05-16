@@ -6,21 +6,25 @@
     <div class="container px-5 py-24 mx-auto">
         <!-- Заголовок и статистика -->
         <div class="flex flex-col text-center w-full mb-12">
-            <h1 class="sm:text-3xl text-2xl font-medium title-font mb-4 text-gray-900">{% trans "Database Backup Management" %}</h1>
-            <p class="lg:w-2/3 mx-auto leading-relaxed text-base">{% trans "Create, download, restore, or delete database backups." %}</p>
-            <!-- Статистика -->
+            <h1 class="sm:text-3xl text-2xl font-medium title-font mb-4 text-gray-900">{% trans "Backup Management" %}</h1>
+            <p class="lg:w-2/3 mx-auto leading-relaxed text-base">{% trans "Manage database backups efficiently and securely" %}</p>
+            <!-- Статистика и текущая информация о БД -->
             <div class="flex justify-center mt-6 space-x-4 flex-wrap">
+                <div class="bg-indigo-100 p-4 rounded-lg shadow mb-4">
+                    <h3 class="text-sm font-medium text-indigo-700">{% trans "Database Type" %}</h3>
+                    <p class="text-2xl font-bold text-indigo-900">{{ stats.current_db_type }}</p>
+                </div>
                 <div class="bg-blue-100 p-4 rounded-lg shadow mb-4">
                     <h3 class="text-sm font-medium text-blue-700">{% trans "Total Backups" %}</h3>
                     <p class="text-2xl font-bold text-blue-900">{{ stats.total_backups }}</p>
                 </div>
                 <div class="bg-green-100 p-4 rounded-lg shadow mb-4">
                     <h3 class="text-sm font-medium text-green-700">{% trans "Last Backup" %}</h3>
-                    <p class="text-2xl font-bold text-green-900">{{ stats.last_backup|default:"None" }}</p>
+                    <p class="text-xl font-bold text-green-900">{{ stats.last_backup|default:"N/A" }}</p>
                 </div>
-                <div class="bg-yellow-100 p-4 rounded-lg shadow mb-4">
-                    <h3 class="text-sm font-medium text-yellow-700">{% trans "Storage Used" %}</h3>
-                    <p class="text-2xl font-bold text-yellow-900">{{ stats.storage_used|default:"0 MB" }}</p>
+                <div class="bg-purple-100 p-4 rounded-lg shadow mb-4">
+                    <h3 class="text-sm font-medium text-purple-700">{% trans "Storage Used" %}</h3>
+                    <p class="text-2xl font-bold text-purple-900">{{ stats.storage_used|floatformat:2 }} MB</p>
                 </div>
             </div>
         </div>
@@ -48,7 +52,7 @@
                         <div class="flex-grow">
                             <p class="leading-relaxed text-base">{% trans "Created" %}: {{ backup.created_at }}</p>
                             <p class="leading-relaxed text-base">{% trans "Size" %}: {{ backup.size|floatformat:2 }} MB</p>
-                            <p class="leading-relaxed text-base">{% trans "Format" %}: SQL</p>
+                            <p class="leading-relaxed text-base">{% trans "Type" %}: {{ backup.type }}</p>
                             <div class="mt-4 flex justify-between items-center">
                                 <a href="{% url 'staffs:download_backup' filename=backup.filename %}" class="text-indigo-500 inline-flex items-center">{% trans "Download" %}
                                     <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="w-4 h-4 ml-2" viewBox="0 0 24 24">
@@ -217,8 +221,11 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('Restore button found:', button); // Отладка
         button.addEventListener('click', async function () {
             console.log('Restore button clicked:', button.dataset.filename); // Отладка
-
-            const confirmed = confirm("{% trans 'Restoring a backup will overwrite the current database. This action cannot be undone. Are you sure?' %}");
+            
+            // Простое предупреждение о восстановлении
+            const confirmMessage = "{% trans 'Restoring a backup will overwrite the current database. This action cannot be undone. Are you sure?' %}";
+            
+            const confirmed = confirm(confirmMessage);
             console.log('Restore confirm result:', confirmed); // Отладка
 
             if (!confirmed) {
