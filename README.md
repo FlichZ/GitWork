@@ -20,7 +20,7 @@
 
 - **Бэкенд**: Django
 - **Фронтенд**: HTML, CSS (Tailwind), JavaScript
-- **База данных**: PostgreSQL
+- **База данных**: PostgreSQL, SQLite
 - **Контейнеризация**: Docker
 - **Веб-сервер**: Nginx, Gunicorn
 
@@ -32,7 +32,7 @@
 
 2. Клонируйте репозиторий:
    ```bash
-   git clone https://github.com/yourusername/docflow-guardian.git
+   git clone https://github.com/FlichZ/GitWork
    cd docflow-guardian
    ```
 
@@ -69,7 +69,7 @@
 
 1. Клонируйте репозиторий:
    ```bash
-   git clone https://github.com/yourusername/docflow-guardian.git
+   git clone https://github.com/FlichZ/GitWork
    cd docflow-guardian
    ```
 
